@@ -1160,12 +1160,17 @@ def update_map(key, end_year, map_year, options):
     n_df  = pd.DataFrame(map_nodes)
     max_p = max(15.0, n_df['Price'].max())
 
+    # Which Import nodes have a terminal expansion built by map_year?
+    import_exp = exp_info[exp_info['Type'] == 'Terminal']
+    built_terminals = set(
+        import_exp[import_exp['Name'].isin(built_now)]['Target'].tolist()
+    )
+
     styling = {
         'Supply':  ('circle',      None,      4),
         'Demand':  ('square',      '#ef4444', 0),
         'Storage': ('diamond',     '#a78bfa', 0),
         'LNG':     ('triangle',    '#fbbf24', 0),
-        'Import':  ('star',        '#34d399', 0),
         'Hub':     ('circle-open', '#8b8fa3', 0),
     }
     for nt, (sym, col, sm) in styling.items():
@@ -1195,7 +1200,65 @@ def update_map(key, end_year, map_year, options):
             name=nt,
         ))
 
-    # Overlay gold star markers for built expansion projects
+    # Import terminal nodes — split into proposed (not yet built) and active (built)
+    df_import = n_df[n_df['Type'] == 'Import']
+    df_proposed = df_import[~df_import['Node'].isin(built_terminals)]
+    df_active   = df_import[df_import['Node'].isin(built_terminals)]
+
+    if not df_proposed.empty:
+        fig.add_trace(go.Scattermapbox(
+            lat=df_proposed['Lat'], lon=df_proposed['Lon'],
+            mode='markers+text' if show_labels else 'markers',
+            marker=dict(size=14, symbol='circle-open', color='#9E9E9E'),
+            opacity=0.55,
+            text=df_proposed['Node'] if show_labels else None,
+            textposition='top center',
+            textfont=dict(size=10, color='#9E9E9E', family='Arial'),
+            hovertemplate='%{customdata}<extra></extra>',
+            customdata=df_proposed['Node'] + ' (proposed — not yet built)',
+            name='Import Terminal (proposed)',
+        ))
+
+    if not df_active.empty:
+        for _, row_t in df_active.iterrows():
+            exp_row = import_exp[import_exp['Target'] == row_t['Node']]
+            e_cap = int(exp_row.iloc[0]['NewCapacity']) if not exp_row.empty else '?'
+            e_capex = f"${exp_row.iloc[0]['CapEx']/1e6:,.0f}M" if not exp_row.empty else '?'
+            proj_name = exp_row.iloc[0]['Name'] if not exp_row.empty else row_t['Node']
+            built_yr = builds_df[builds_df['Project'] == proj_name]['Year'].iloc[0] if not builds_df.empty and proj_name in builds_df['Project'].values else '?'
+            tip = (f"<b>⚓ {row_t['Node']} — LNG Import Terminal</b><br>"
+                   f"Status: <b>OPERATIONAL</b> (built {built_yr})<br>"
+                   f"Capacity: {e_cap} TJ/d<br>CapEx: {e_capex}")
+        # Outer glow ring
+        fig.add_trace(go.Scattermapbox(
+            lat=df_active['Lat'], lon=df_active['Lon'],
+            mode='markers',
+            marker=dict(size=38, symbol='circle', color='#00BCD4'),
+            opacity=0.18,
+            hoverinfo='skip', showlegend=False,
+        ))
+        # Middle ring
+        fig.add_trace(go.Scattermapbox(
+            lat=df_active['Lat'], lon=df_active['Lon'],
+            mode='markers',
+            marker=dict(size=26, symbol='circle', color='#00BCD4'),
+            opacity=0.40,
+            hoverinfo='skip', showlegend=False,
+        ))
+        # Core marker
+        fig.add_trace(go.Scattermapbox(
+            lat=df_active['Lat'], lon=df_active['Lon'],
+            mode='markers+text' if show_labels else 'markers',
+            marker=dict(size=16, symbol='star', color='#00BCD4'),
+            text=df_active['Node'] if show_labels else None,
+            textposition='top center',
+            textfont=dict(size=12, color='#006064', family='Arial Black'),
+            hovertemplate='%{customdata}<extra></extra>',
+            customdata=[tip],
+            name='Import Terminal (operational)',
+        ))
+
+    # Overlay gold star markers for built pipeline expansions (not terminals — handled above)
     if built_now:
         exp_lats, exp_lons, exp_tips, exp_labels = [], [], [], []
         for proj in built_now:
@@ -1203,23 +1266,21 @@ def update_map(key, end_year, map_year, options):
             if row_e.empty:
                 continue
             e = row_e.iloc[0]
+            if e['Type'] == 'Terminal':
+                continue  # terminals rendered separately above
             target = e['Target']
-            # Find coordinates: arc target → midpoint of arc, or node target → COORDS
-            if target in COORDS:
-                lat, lon = COORDS[target]
+            arc_row_e = static_data['arcs'][static_data['arcs']['Name'] == target]
+            if arc_row_e.empty:
+                continue
+            path_e = ARC_WAYPOINTS.get(target)
+            if path_e:
+                mid = path_e[len(path_e) // 2]
+                lat, lon = mid[0], mid[1]
             else:
-                arc_row_e = static_data['arcs'][static_data['arcs']['Name'] == target]
-                if arc_row_e.empty:
-                    continue
-                path_e = ARC_WAYPOINTS.get(target)
-                if path_e:
-                    mid = path_e[len(path_e) // 2]
-                    lat, lon = mid[0], mid[1]
-                else:
-                    from_n = arc_row_e.iloc[0]['From']
-                    to_n   = arc_row_e.iloc[0]['To']
-                    lat = (COORDS[from_n][0] + COORDS[to_n][0]) / 2
-                    lon = (COORDS[from_n][1] + COORDS[to_n][1]) / 2
+                from_n = arc_row_e.iloc[0]['From']
+                to_n   = arc_row_e.iloc[0]['To']
+                lat = (COORDS[from_n][0] + COORDS[to_n][0]) / 2
+                lon = (COORDS[from_n][1] + COORDS[to_n][1]) / 2
             built_yr = builds_df[builds_df['Project'] == proj]['Year'].iloc[0] if not builds_df.empty else '?'
             exp_lats.append(lat); exp_lons.append(lon)
             exp_labels.append(proj.replace('_', ' '))
@@ -1234,7 +1295,7 @@ def update_map(key, end_year, map_year, options):
                 textfont=dict(size=11, color='#B8860B', family='Arial Black'),
                 hovertemplate='%{customdata}<extra></extra>',
                 customdata=exp_tips,
-                name='New Infrastructure',
+                name='Pipeline Expansion',
             ))
 
     fig.update_layout(
