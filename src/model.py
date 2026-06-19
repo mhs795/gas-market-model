@@ -109,19 +109,34 @@ class GasMarketModel:
 
     def solve(self, mip_gap=0.005):
         m = self.model
-        base_path = os.path.dirname(__file__)
-        log_path = os.path.join(base_path, "..", "solver_log.txt")
-        os.environ['TMPDIR'] = os.path.abspath(os.path.join(base_path, "..", "tmp"))
-        solver = pyo.SolverFactory('cbc')
-        if mip_gap is not None: solver.options['ratioGap'] = mip_gap
-        solver.options['threads'] = 4
-        res = solver.solve(m, tee=False)
-        if res.solver.termination_condition in [pyo.TerminationCondition.optimal, pyo.TerminationCondition.feasible]:
-            for e in m.Expansion: m.build[e].fix(pyo.value(m.build[e]))
+
+        cbc = pyo.SolverFactory('cbc')
+        cbc.options['threads'] = 4
+
+        # If all expansion vars are already fixed there are no free binaries —
+        # solve as pure LP (much faster, duals available immediately).
+        all_fixed = all(m.build[e].is_fixed() for e in m.Expansion)
+        if all_fixed:
             m.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
-            solver.solve(m, tee=False)
-            return "ok"
-        return str(res.solver.termination_condition)
+            res = cbc.solve(m, tee=False)
+            if res.solver.termination_condition in [pyo.TerminationCondition.optimal,
+                                                     pyo.TerminationCondition.feasible]:
+                return "ok"
+            return str(res.solver.termination_condition)
+
+        # MIP solve
+        cbc.options['ratioGap'] = mip_gap if mip_gap is not None else 0.005
+        res = cbc.solve(m, tee=False)
+        if res.solver.termination_condition not in [pyo.TerminationCondition.optimal,
+                                                     pyo.TerminationCondition.feasible]:
+            return str(res.solver.termination_condition)
+
+        # Fix binary decisions then re-solve as pure LP for dual values (prices)
+        for e in m.Expansion:
+            m.build[e].fix(pyo.value(m.build[e]))
+        m.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
+        cbc.solve(m, tee=False)
+        return "ok"
 
     def get_results(self):
         m = self.model

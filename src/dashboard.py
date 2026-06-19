@@ -706,7 +706,7 @@ sidebar = html.Div(className='md-sidebar', children=[
         html.P('Solver', className='md-section-label'),
 
         slider_group('Optimality Gap',
-            dcc.Slider(id='gap-slider', min=0, max=0.05, step=0.001, value=0.005,
+            dcc.Slider(id='gap-slider', min=0, max=0.05, step=0.001, value=0.01,
                        tooltip={'placement': 'bottom', 'always_visible': True})),
 
         html.Hr(className='md-divider'),
