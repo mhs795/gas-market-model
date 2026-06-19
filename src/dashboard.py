@@ -1187,31 +1187,32 @@ def update_map(key, end_year, map_year, options):
         import_exp[import_exp['Name'].isin(built_now)]['Target'].tolist()
     )
 
+    # All node types — symbol/size vary by type, colour always reflects price
     styling = {
-        'Supply':  ('circle',      None,      4),
-        'Demand':  ('square',      '#ef4444', 0),
-        'Storage': ('diamond',     '#a78bfa', 0),
-        'LNG':     ('triangle',    '#fbbf24', 0),
-        'Hub':     ('circle-open', '#8b8fa3', 0),
+        'Supply':  ('circle',      18),
+        'Demand':  ('square',      16),
+        'Storage': ('diamond',     16),
+        'LNG':     ('triangle',    16),
+        'Hub':     ('circle-open', 14),
     }
-    for nt, (sym, col, sm) in styling.items():
+    show_colorbar = True
+    for nt, (sym, sz) in styling.items():
         df_t = n_df[n_df['Type'] == nt]
         if df_t.empty:
             continue
-        size = df_t['Supply'].apply(lambda x: 12 + np.sqrt(x) * sm) if sm > 0 else 14
         fig.add_trace(go.Scattermapbox(
             lat=df_t['Lat'], lon=df_t['Lon'],
             mode='markers+text' if show_labels else 'markers',
             marker=dict(
-                size=size, symbol=sym,
-                color=df_t['Price'] if col is None else col,
-                colorscale='Plasma' if col is None else None,
+                size=sz, symbol=sym,
+                color=df_t['Price'],
+                colorscale='Plasma',
                 cmin=0, cmax=max_p,
-                showscale=(nt == 'Supply'),
+                showscale=show_colorbar,
                 colorbar=dict(title='Price ($/GJ)', thickness=14, x=1.0,
-                              y=0.3, len=0.4, tickformat='.1f',
+                              y=0.3, len=0.4, tickformat='.0f',
                               bgcolor='rgba(255,255,255,0.9)',
-                              tickfont=dict(color='#111')) if nt == 'Supply' else None,
+                              tickfont=dict(color='#111')) if show_colorbar else None,
             ),
             text=df_t['Node'] if show_labels else None,
             textposition='top center',
@@ -1220,6 +1221,7 @@ def update_map(key, end_year, map_year, options):
             customdata=df_t['Tooltip'],
             name=nt,
         ))
+        show_colorbar = False  # only show once
 
     # Import terminal nodes — split into proposed (not yet built) and active (built)
     df_import = n_df[n_df['Type'] == 'Import']
