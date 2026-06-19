@@ -128,7 +128,7 @@ app = dash.Dash(
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     background_callback_manager=background_callback_manager,
     suppress_callback_exceptions=True,
-    title='Gas Market Explorer',
+    title='GARY — Gas Allocation and Regional Yield Model',
 )
 server = app.server
 
@@ -735,7 +735,7 @@ main = html.Div(className='md-main', children=[
 
     # Header
     html.Div(className='md-header', children=[
-        html.Span('Australian Gas Market Explorer', className='md-header-title'),
+        html.Span('GARY — Gas Allocation and Regional Yield Model', className='md-header-title'),
         html.Div(id='header-scenario-chip', className='md-scenario-chip',
                  children='No scenario loaded'),
     ]),

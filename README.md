@@ -1,4 +1,4 @@
-# Australian Gas Market Explorer 2050
+# GARY — Gas Allocation and Regional Yield Model
 
 A nodal, least-cost gas market optimisation model for the Australian energy transition (2025–2050), with an interactive scenario explorer dashboard.
 

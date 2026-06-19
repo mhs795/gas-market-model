@@ -1,5 +1,5 @@
-AUSTRALIAN GAS MARKET EXPLORER — INSTALLATION
-==============================================
+GARY — GAS ALLOCATION AND REGIONAL YIELD MODEL — INSTALLATION
+==============================================================
 
 REQUIREMENTS
   - Python 3.10 or later  (https://www.python.org/downloads/)
