@@ -16,15 +16,15 @@ All other dependencies (Dash, Plotly, Pyomo, HiGHS, etc.) are installed **automa
 
 **Windows**
 ```
-git clone https://github.com/mhs795/gas-market-model.git
-cd gas-market-model
+git clone https://github.com/mhs795/GARY-gas-allocation-and-regional-yield.git
+cd GARY-gas-allocation-and-regional-yield
 run_dashboard.bat
 ```
 
 **Mac / Linux**
 ```
-git clone https://github.com/mhs795/gas-market-model.git
-cd gas-market-model
+git clone https://github.com/mhs795/GARY-gas-allocation-and-regional-yield.git
+cd GARY-gas-allocation-and-regional-yield
 ./run_dashboard.sh
 ```
 
