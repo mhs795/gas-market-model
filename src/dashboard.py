@@ -1158,7 +1158,7 @@ def update_map(key, end_year, map_year, options):
                           'Type': n_t, 'Price': p_v, 'Supply': s_v, 'Tooltip': tt})
 
     n_df  = pd.DataFrame(map_nodes)
-    max_p = max(15.0, n_df['Price'].max())
+    max_p = 300
 
     # Which Import nodes have a terminal expansion built by map_year?
     import_exp = exp_info[exp_info['Type'] == 'Terminal']
