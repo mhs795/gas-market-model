@@ -18,3 +18,5 @@ MSP_Rev,Sydney,Moomba,100,0.6
 VNI_Rev,Sydney,Melbourne,218,0.4
 PK2SYD,Port_Kembla,Sydney,500,0.1
 SYD2PK,Sydney,Port_Kembla,100,0.1
+SS2Surat,Silver_Springs,Surat,150,0.15
+Surat2SS,Surat,Silver_Springs,150,0.15

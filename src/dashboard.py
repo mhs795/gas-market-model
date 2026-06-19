@@ -79,8 +79,9 @@ ARC_WAYPOINTS = {
     'WGP_Pipe':   [[-27.15,149.07],[-26.6,150.2],[-25.5,150.7],[-24.7,151.2],[-23.84,151.30]],
     'QGP':      [[-27.15,149.07],[-26.85,149.20],[-26.50,149.55],[-26.10,150.00],[-25.50,150.35],[-24.90,150.65],[-24.40,150.90],[-23.84,151.26]],
     'Longford': [[-38.50,147.00],[-38.47,146.70],[-38.42,146.30],[-38.28,145.95],[-38.10,145.55],[-37.95,145.20],[-37.85,145.00],[-37.81,144.96]],
+    'SS2Surat': [[-27.4,149.2],[-27.35,149.18],[-27.28,149.15],[-27.20,149.12],[-27.15,149.07]],
 }
-for _fwd, _rev in [('SWQP','SWQP_Rev'),('MSP','MSP_Rev'),('VNI','VNI_Rev'),('PK2SYD','SYD2PK')]:
+for _fwd, _rev in [('SWQP','SWQP_Rev'),('MSP','MSP_Rev'),('VNI','VNI_Rev'),('PK2SYD','SYD2PK'),('SS2Surat','Surat2SS')]:
     if _rev not in ARC_WAYPOINTS and _fwd in ARC_WAYPOINTS:
         ARC_WAYPOINTS[_rev] = list(reversed(ARC_WAYPOINTS[_fwd]))
 
@@ -1071,6 +1072,18 @@ def update_header_kpis(key, end_year):
     Input('map-options',     'value'),
 )
 def update_map(key, end_year, map_year, options):
+    try:
+        return _update_map_inner(key, end_year, map_year, options)
+    except Exception as e:
+        import traceback
+        print(f'[MAP ERROR] {e}')
+        traceback.print_exc()
+        fig = go.Figure()
+        fig.update_layout(mapbox=dict(style='open-street-map', center=dict(lat=-31,lon=146), zoom=4.2),
+                          margin=dict(l=0,r=0,t=0,b=0), height=720, paper_bgcolor='white')
+        return [html.Span(f'Map error: {e}', style={'color':'red'})], fig
+
+def _update_map_inner(key, end_year, map_year, options):
     show_labels   = 'labels'   in (options or [])
     show_capacity = 'capacity' in (options or [])
 
@@ -1187,24 +1200,25 @@ def update_map(key, end_year, map_year, options):
         import_exp[import_exp['Name'].isin(built_now)]['Target'].tolist()
     )
 
-    # All node types — symbol/size vary by type, colour always reflects price
+    # All node types — symbol varies by type, colour reflects price, Supply nodes scale with production
     styling = {
-        'Supply':  ('circle',      18),
-        'Demand':  ('square',      16),
-        'Storage': ('diamond',     16),
-        'LNG':     ('triangle',    16),
-        'Hub':     ('circle-open', 14),
+        'Supply':  ('circle',      None, 4),   # size scaled by production
+        'Demand':  ('square',      None, 0),
+        'Storage': ('diamond',     None, 0),
+        'LNG':     ('triangle',    None, 0),
+        'Hub':     ('circle-open', None, 0),
     }
     show_colorbar = True
-    for nt, (sym, sz) in styling.items():
+    for nt, (sym, _, sm) in styling.items():
         df_t = n_df[n_df['Type'] == nt]
         if df_t.empty:
             continue
+        size = df_t['Supply'].apply(lambda x: 14 + np.sqrt(x) * sm) if sm > 0 else 16
         fig.add_trace(go.Scattermapbox(
             lat=df_t['Lat'], lon=df_t['Lon'],
             mode='markers+text' if show_labels else 'markers',
             marker=dict(
-                size=sz, symbol=sym,
+                size=size, symbol=sym,
                 color=df_t['Price'],
                 colorscale='Plasma',
                 cmin=0, cmax=max_p,
@@ -1221,7 +1235,7 @@ def update_map(key, end_year, map_year, options):
             customdata=df_t['Tooltip'],
             name=nt,
         ))
-        show_colorbar = False  # only show once
+        show_colorbar = False  # only show colourbar once
 
     # Import terminal nodes — split into proposed (not yet built) and active (built)
     df_import = n_df[n_df['Type'] == 'Import']
@@ -1327,6 +1341,7 @@ def update_map(key, end_year, map_year, options):
         legend=dict(yanchor='top', y=0.99, xanchor='left', x=0.01,
                     bgcolor='rgba(255,255,255,0.88)', font=dict(color='#111', size=11)),
         paper_bgcolor='white',
+        uirevision=f'{key}_{map_year}',  # reset view on scenario/year change
     )
     return map_kpis, fig
 
