@@ -3,7 +3,43 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
-# Launch dashboard directly (on-demand scenario solving is now handled in GUI)
+URL="http://127.0.0.1:8050"
+
+# If the server is already running, just open/refresh the browser and exit
+if lsof -ti :8050 >/dev/null 2>&1; then
+    echo "GARY already running at $URL — refreshing browser..."
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$URL"
+    elif command -v open >/dev/null 2>&1; then
+        open "$URL"
+    fi
+    exit 0
+fi
+
+# Start the server in the background
 source venv/bin/activate
 export PYTHONPATH=$PYTHONPATH:$(pwd)/src
-python src/dashboard.py
+python src/dashboard.py &
+SERVER_PID=$!
+
+# Wait for it to be ready (up to 15 seconds)
+echo "Starting GARY..."
+for i in $(seq 1 30); do
+    if lsof -ti :8050 >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
+
+# Open browser
+if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL"
+elif command -v open >/dev/null 2>&1; then
+    open "$URL"
+else
+    echo "Open your browser at $URL"
+fi
+
+echo "GARY running at $URL  (PID $SERVER_PID)"
+echo "Press Ctrl+C to stop."
+wait $SERVER_PID
