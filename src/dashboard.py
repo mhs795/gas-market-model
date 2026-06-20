@@ -696,12 +696,12 @@ body, html {
   background-color: var(--md-hover) !important;
   color: var(--md-text) !important;
 }
-/* Dark mode – sliders in the main content area (map year, horizon) */
-.dark .md-map-controls .rc-slider-mark-text  { color: rgba(255,255,255,0.45) !important; }
-.dark .md-map-controls .rc-slider-mark-text-active { color: rgba(255,255,255,0.87) !important; }
-.dark .md-map-controls .rc-slider-rail       { background-color: rgba(255,255,255,0.18) !important; }
-.dark .md-map-controls .rc-slider-track      { background-color: rgba(144,202,249,0.85) !important; }
-.dark .md-map-controls .rc-slider-handle     { border-color: #90CAF9 !important; background-color: #90CAF9 !important; }
+/* Dark mode – all sliders */
+.dark .rc-slider-mark-text        { color: rgba(255,255,255,0.55) !important; }
+.dark .rc-slider-mark-text-active { color: rgba(255,255,255,0.90) !important; }
+.dark .md-map-controls .rc-slider-rail   { background-color: rgba(255,255,255,0.18) !important; }
+.dark .md-map-controls .rc-slider-track  { background-color: rgba(144,202,249,0.85) !important; }
+.dark .md-map-controls .rc-slider-handle { border-color: #90CAF9 !important; background-color: #90CAF9 !important; }
 .dark .md-input-label                        { color: var(--md-text-med) !important; }
 .theme-toggle {
   display: flex; align-items: center; justify-content: center;
