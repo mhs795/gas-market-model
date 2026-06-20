@@ -774,29 +774,6 @@ sidebar = html.Div(className='md-sidebar', children=[
     # Body
     html.Div(className='md-sidebar-body', children=[
 
-        # ── Scenario ──────────────────────────────────────────────────────
-        html.P('Scenario', className='md-section-label'),
-
-        slider_group('Southern Winter Stress',
-            dcc.Slider(id='winter-slider', min=0, max=2, step=1,
-                       marks={i: l for i, l in enumerate(LEVELS)}, value=1)),
-
-        slider_group('Global LNG Demand',
-            dcc.Slider(id='lng-slider', min=0, max=2, step=1,
-                       marks={i: l for i, l in enumerate(LEVELS)}, value=1)),
-
-        html.Hr(className='md-divider'),
-
-        # ── Solver ────────────────────────────────────────────────────────
-        html.P('Solver', className='md-section-label'),
-
-        slider_group('Optimality Gap',
-            dcc.Slider(id='gap-slider', min=0, max=0.05, step=0.001, value=0.01,
-                       marks={0: '0%', 0.01: '1%', 0.02: '2%', 0.05: '5%'},
-                       tooltip={'placement': 'bottom', 'always_visible': True})),
-
-        html.Hr(className='md-divider'),
-
         # ── Actions ───────────────────────────────────────────────────────
         html.P('Actions', className='md-section-label'),
 
@@ -811,6 +788,24 @@ sidebar = html.Div(className='md-sidebar', children=[
                          striped=False, animated=False,
                          style={'display': 'none'}),
         ]),
+
+        html.Hr(className='md-divider'),
+
+        # ── Scenario ──────────────────────────────────────────────────────
+        html.P('Scenario', className='md-section-label'),
+
+        slider_group('Southern Winter Stress',
+            dcc.Slider(id='winter-slider', min=0, max=2, step=1,
+                       marks={i: l for i, l in enumerate(LEVELS)}, value=1)),
+
+        slider_group('Global LNG Demand',
+            dcc.Slider(id='lng-slider', min=0, max=2, step=1,
+                       marks={i: l for i, l in enumerate(LEVELS)}, value=1)),
+
+        slider_group('Optimality Gap',
+            dcc.Slider(id='gap-slider', min=0, max=0.05, step=0.001, value=0.01,
+                       marks={0: '0%', 0.01: '1%', 0.02: '2%', 0.05: '5%'},
+                       tooltip={'placement': 'bottom', 'always_visible': True})),
 
         html.Hr(className='md-divider'),
 
