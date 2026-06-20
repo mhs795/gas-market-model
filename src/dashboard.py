@@ -676,24 +676,22 @@ body, html {
 .dark .md-alert-success { background-color: rgba(46,125,50,0.15) !important; color: #81C784 !important; }
 .dark .md-alert-info    { background-color: rgba(25,118,210,0.15) !important; color: #90CAF9 !important; }
 .dark .md-alert-warn    { background-color: rgba(230,81,0,0.15)  !important; color: #FFCC80 !important; }
-/* Dark mode – Bootstrap table (expansions tab) */
-.dark table,
-.dark .table-light,
-.dark .table-light > :not(caption) > * > *,
-.dark .table > :not(caption) > * > *,
-.dark .table-striped > tbody > tr:nth-of-type(odd) > *,
-.dark .table-striped > tbody > tr:nth-of-type(even) > * {
+/* Dark mode – Bootstrap table (expansions tab): flat dark, no stripes */
+.dark table { border-color: var(--md-divider) !important; }
+.dark table > :not(caption) > * > *,
+.dark .table-striped > tbody > tr > * {
   background-color: var(--md-surface) !important;
+  --bs-table-striped-bg: var(--md-surface);
+  --bs-table-bg: var(--md-surface);
+  --bs-table-accent-bg: var(--md-surface);
   color: var(--md-text) !important;
   border-color: var(--md-divider) !important;
 }
-.dark table thead th,
-.dark .table-light thead th {
+.dark table thead th {
   background-color: var(--md-surface-2) !important;
   color: var(--md-text-low) !important;
   border-color: var(--md-divider) !important;
 }
-.dark .table-hover > tbody > tr:hover > *,
 .dark table tbody tr:hover > * {
   background-color: var(--md-hover) !important;
   color: var(--md-text) !important;
