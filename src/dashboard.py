@@ -676,6 +676,27 @@ body, html {
 .dark .md-alert-success { background-color: rgba(46,125,50,0.15) !important; color: #81C784 !important; }
 .dark .md-alert-info    { background-color: rgba(25,118,210,0.15) !important; color: #90CAF9 !important; }
 .dark .md-alert-warn    { background-color: rgba(230,81,0,0.15)  !important; color: #FFCC80 !important; }
+/* Dark mode – Bootstrap table (expansions tab) */
+.dark .table-light, .dark .table-light > :not(caption) > * > * {
+  background-color: var(--md-surface) !important;
+  color: var(--md-text) !important;
+  border-color: var(--md-divider) !important;
+}
+.dark .table-light thead th {
+  background-color: var(--md-surface-2) !important;
+  color: var(--md-text-low) !important;
+}
+.dark .table-hover > tbody > tr:hover > * {
+  background-color: var(--md-hover) !important;
+  color: var(--md-text) !important;
+}
+/* Dark mode – sliders in the main content area (map year, horizon) */
+.dark .md-map-controls .rc-slider-mark-text  { color: rgba(255,255,255,0.45) !important; }
+.dark .md-map-controls .rc-slider-mark-text-active { color: rgba(255,255,255,0.87) !important; }
+.dark .md-map-controls .rc-slider-rail       { background-color: rgba(255,255,255,0.18) !important; }
+.dark .md-map-controls .rc-slider-track      { background-color: rgba(144,202,249,0.85) !important; }
+.dark .md-map-controls .rc-slider-handle     { border-color: #90CAF9 !important; background-color: #90CAF9 !important; }
+.dark .md-input-label                        { color: var(--md-text-med) !important; }
 .theme-toggle {
   display: flex; align-items: center; justify-content: center;
   gap: 8px; margin: 12px 0 4px; padding: 8px 12px;
