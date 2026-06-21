@@ -55,7 +55,6 @@ def load_static_data():
     return {
         'nodes':     pd.read_csv(os.path.join(d, "nodes.csv")),
         'arcs':      pd.read_csv(os.path.join(d, "arcs.csv")),
-        'ind_facs':  pd.read_csv(os.path.join(d, "industrial_facilities.csv")),
         'expansion': pd.read_csv(os.path.join(d, "expansion_options.csv")),
         'gpg_facs':  _safe_csv(os.path.join(d, "gpg_facilities.csv")),
         'ind_bbg':   _safe_csv(os.path.join(d, "industrial_facilities_bbg.csv")),
@@ -1321,8 +1320,6 @@ def _update_map_inner(key, end_year, map_year, options, dark=False):
         add_arrowhead(fig, path[-2][0], path[-2][1], path[-1][0], path[-1][1], color, fw)
 
     node_types  = static_data['nodes'].set_index('Name')['Type'].to_dict()
-    fac_dem_map = (pd.DataFrame(res['facility_demand']).groupby('Facility')['Value'].sum() / 1000
-                   if res['facility_demand'] else {})
     def _node_sum(stream, col):
         df = pd.DataFrame(res.get(stream, []))
         return (df.groupby('Node')[col].sum() / 1000).to_dict() if not df.empty else {}
@@ -1334,8 +1331,6 @@ def _update_map_inner(key, end_year, map_year, options, dark=False):
         p_v = float(price_map.get(node, 0))
         s_v = float(prod_map.get(node, 0))
         tt  = f"<b>{node} ({n_t})</b><br>Price: ${p_v:.2f}/GJ<br>"
-        for _, fr in static_data['ind_facs'][static_data['ind_facs']['Node'] == node].iterrows():
-            tt += f"- {fr['FacilityName']}: {fac_dem_map.get(fr['FacilityName'], 0):.1f} PJ<br>"
         gv, gc = gpg_serv.get(node, 0), gpg_cur.get(node, 0)
         iv, ic = ind_serv.get(node, 0), ind_cur.get(node, 0)
         def _fac_lines(df):
@@ -1784,17 +1779,7 @@ def update_industrial(key, end_year, active_tab, theme):
                       template=tmpl)
         fig.update_yaxes(rangemode='tozero')
         return fig
-    # Fallback: legacy facility_demand view (pre-curtailment result sets)
-    frames = [pd.DataFrame(r['facility_demand']).assign(Year=r['Year'])
-              for r in filtered if r['facility_demand']]
-    if not frames:
-        return b
-    df = pd.concat(frames).groupby(['Year','Facility'])['Value'].sum().reset_index()
-    df['PJ'] = df['Value'] / 1000
-    fig = px.line(df, x='Year', y='PJ', color='Facility',
-                  title='Industrial Facility Gas Use (PJ)', template=tmpl)
-    fig.update_yaxes(rangemode='tozero')
-    return fig
+    return b
 
 # ---------------------------------------------------------------------------
 # Theme toggle

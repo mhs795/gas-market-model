@@ -15,9 +15,7 @@ class GasMarketModel:
         self.already_built = already_built if already_built else []
         self.adgsm_enabled = adgsm_enabled
         
-        # Load supplemental data for industrial facilities
         base_path = os.path.dirname(__file__)
-        self.ind_facs = pd.read_csv(os.path.join(base_path, "data", "industrial_facilities.csv"))
 
         # --- Curtailable large-user demand (GPG + large industrial) ---------
         # Exogenous, empirically-derived (GBB BBGPG / BBLARGE) daily demand added
@@ -42,14 +40,6 @@ class GasMarketModel:
         self.strike_ind = float(strikes.get('Industrial', 120.0))
         self.gpg_nodes = sorted({n for (n, _) in self.gpg_demand})
         self.ind_nodes = sorted({n for (n, _) in self.ind_demand})
-        
-        # Optimized Lookups
-        self.facility_node_map = self.ind_facs.set_index('FacilityName')['Node'].to_dict()
-        # Mappings for specific industrial nodes
-        self.facility_node_map.update({
-            'APLNG': 'APLNG', 'GLNG': 'GLNG', 'QCLNG': 'QCLNG',
-            'Moomba_Processing': 'Moomba', 'Surat_Train': 'Surat', 'Gippsland': 'Gippsland'
-        })
 
     def build_model(self):
         m = pyo.ConcreteModel()
@@ -189,7 +179,7 @@ class GasMarketModel:
 
     def get_results(self):
         m = self.model
-        res = {k: [] for k in ['prices', 'production', 'flow', 'storage', 'shortage', 'builds', 'facility_demand', 'gpg', 'industrial']}
+        res = {k: [] for k in ['prices', 'production', 'flow', 'storage', 'shortage', 'builds', 'gpg', 'industrial']}
         demand_dict = self.demand.set_index(['Node', 'Day'])['Demand'].to_dict()
         supply_at = {n: [s for s in m.Supply if s[0] == n] for n in m.Nodes}
 
@@ -227,12 +217,6 @@ class GasMarketModel:
                 if dem > 0.001:
                     res['industrial'].append({'Day': t, 'Node': n, 'Demand': float(dem), 'Served': float(dem - cur), 'Curtailed': cur})
 
-            # Keep facility-level demand info
-            for fac_name, node in self.facility_node_map.items():
-                if node in ['APLNG', 'GLNG', 'QCLNG', 'Sydney', 'Melbourne', 'Adelaide', 'Brisbane']: out_v = demand_dict.get((node, t), 0)
-                else: out_v = sum(pv[s[0], s[1], t] for s in supply_at.get(node, [])) if supply_at.get(node) else demand_dict.get((node, t), 0)
-                res['facility_demand'].append({'Day': t, 'Facility': fac_name, 'Value': float(out_v)})
-        
         for e in m.Expansion:
             if pyo.value(m.build[e]) > 0.5: res['builds'].append(e)
         res['total_cost'] = pyo.value(m.obj)
