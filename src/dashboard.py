@@ -1667,25 +1667,29 @@ def update_prices(key, end_year, active_tab, theme):
     dpr = dpr[dpr['Node'].isin(demand_nodes)].copy()
     dpr['Date'] = pd.to_datetime(dpr['Year'].astype(str) + dpr['Day'].astype(int).astype(str).str.zfill(3),
                                  format='%Y%j')
-    # Split centres by the highest annual-mean price they reach (cap-bound vs
-    # low) so each daily chart auto-scales to its own group.
-    ann    = dpr.groupby(['Year', 'Node'])['Price'].mean().groupby('Node').max()
+    # Quarterly-average price (~4 points/year): smooths daily noise while keeping
+    # the seasonal (winter) signal.
+    dpr['Quarter'] = dpr['Date'].dt.to_period('Q').dt.to_timestamp()
+    q = dpr.groupby(['Quarter', 'Node'])['Price'].mean().reset_index()
+    # Split centres by the highest quarterly price they reach (cap-bound vs low)
+    # so each chart auto-scales to its own group.
+    ann    = q.groupby('Node')['Price'].max()
     hit    = [n for n in demand_nodes if ann.get(n, 0) >= 150]
     no_hit = [n for n in demand_nodes if n not in hit]
 
     def _price_fig(nodes, title):
-        sub = dpr[dpr['Node'].isin(nodes)].sort_values('Date')
+        sub = q[q['Node'].isin(nodes)].sort_values('Quarter')
         if sub.empty:
             f = blank_fig(tmpl)
             f.update_layout(title=title)
             return f
-        f = px.line(sub, x='Date', y='Price', color='Node', title=title,
-                    template=tmpl, labels={'Price': '$/GJ'}, render_mode='webgl')
+        f = px.line(sub, x='Quarter', y='Price', color='Node', title=title,
+                    template=tmpl, labels={'Price': '$/GJ', 'Quarter': ''})
         f.update_yaxes(rangemode='tozero')
         return f
 
-    fig_high = _price_fig(hit, 'Demand Centres reaching the $300 cap — daily ($/GJ)')
-    fig_low  = _price_fig(no_hit, 'Demand Centres staying below the cap — daily ($/GJ)')
+    fig_high = _price_fig(hit, 'Demand Centres reaching the $300 cap — quarterly avg ($/GJ)')
+    fig_low  = _price_fig(no_hit, 'Demand Centres staying below the cap — quarterly avg ($/GJ)')
     return fig_high, fig_low
 
 # ---------------------------------------------------------------------------
