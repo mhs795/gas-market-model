@@ -1331,21 +1331,20 @@ def _update_map_inner(key, end_year, map_year, options, dark=False):
         p_v = float(price_map.get(node, 0))
         s_v = float(prod_map.get(node, 0))
         tt  = f"<b>{node} ({n_t})</b><br>Price: ${p_v:.2f}/GJ<br>"
-        gv, gc = gpg_serv.get(node, 0), gpg_cur.get(node, 0)
-        iv, ic = ind_serv.get(node, 0), ind_cur.get(node, 0)
-        def _fac_lines(df):
-            s = ''
-            if df is not None and not df.empty:
-                rows = df[df['Node'] == node].sort_values('MeanDemand', ascending=False)
-                for _, fr in rows.iterrows():
-                    s += f"&nbsp;&nbsp;· {fr['FacilityName']}: {fr['MeanDemand'] * 365 / 1000:.1f} PJ/yr<br>"
+        def _fac_block(df, label, icon, shed):
+            if df is None or df.empty:
+                return ''
+            rows = df[df['Node'] == node].sort_values('MeanDemand', ascending=False)
+            tot = (rows['MeanDemand'] * 365 / 1000).sum() if not rows.empty else 0
+            if tot < 0.01:
+                return ''
+            # headline = exact sum of the facility components below it
+            s = f"{icon} {label}: {tot:.1f} PJ/yr" + (f" <i>({shed:.1f} shed)</i>" if shed > 0.01 else "") + "<br>"
+            for _, fr in rows.iterrows():
+                s += f"&nbsp;&nbsp;· {fr['FacilityName']}: {fr['MeanDemand'] * 365 / 1000:.1f} PJ/yr<br>"
             return s
-        if gv + gc > 0.01:
-            tt += f"⚡ GPG: {gv:.1f} PJ" + (f" <i>(shed {gc:.1f})</i>" if gc > 0.01 else "") + "<br>"
-            tt += _fac_lines(static_data.get('gpg_facs'))
-        if iv + ic > 0.01:
-            tt += f"🏭 Large industrial: {iv:.1f} PJ" + (f" <i>(shed {ic:.1f})</i>" if ic > 0.01 else "") + "<br>"
-            tt += _fac_lines(static_data.get('ind_bbg'))
+        tt += _fac_block(static_data.get('gpg_facs'), 'GPG', '⚡', gpg_cur.get(node, 0))
+        tt += _fac_block(static_data.get('ind_bbg'), 'Large industrial', '🏭', ind_cur.get(node, 0))
         map_nodes.append({'Node': node, 'Lat': c[0], 'Lon': c[1],
                           'Type': n_t, 'Price': p_v, 'Supply': s_v, 'Tooltip': tt})
 

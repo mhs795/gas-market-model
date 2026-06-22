@@ -129,8 +129,14 @@ def _facility_table(g, tier):
 
 
 def _node_profile(g):
-    # mean demand per (Node, day-of-year), averaged across recent years
-    prof = (g.groupby(["Day", "Node"])["Demand"].mean().reset_index())
+    # Node daily total = SUM across all facilities at that node on each actual
+    # date, then average across recent years for a representative 365-day shape.
+    # (Summing first is essential: a node has many facilities; averaging across
+    # them would understate node demand by ~the facility count.)
+    g = g.copy()
+    g["Year"] = g["GasDate"].dt.year
+    daily = g.groupby(["Year", "Day", "Node"])["Demand"].sum().reset_index()
+    prof = daily.groupby(["Day", "Node"])["Demand"].mean().reset_index()
     prof["Demand"] = prof["Demand"].round(4)
     # ensure every node has all 365 days (fill gaps with node mean)
     nodes = prof.Node.unique()
