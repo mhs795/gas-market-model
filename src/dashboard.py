@@ -937,8 +937,8 @@ main = html.Div(className='md-main', children=[
 
             # Prices
             html.Div(id='tab-price-content', style={'display': 'none'}, children=[
-                dcc.Graph(id='price-vwap-graph',  style={'marginBottom': '4px'}),
-                dcc.Graph(id='price-nodal-graph'),
+                dcc.Graph(id='price-high-graph',  style={'marginBottom': '4px'}),
+                dcc.Graph(id='price-low-graph'),
             ]),
 
             # Expansions
@@ -1640,8 +1640,8 @@ def update_storage(key, end_year, active_tab, theme):
 # Prices
 # ---------------------------------------------------------------------------
 @app.callback(
-    Output('price-vwap-graph',  'figure'),
-    Output('price-nodal-graph', 'figure'),
+    Output('price-high-graph', 'figure'),
+    Output('price-low-graph',  'figure'),
     Input('result-selector', 'value'),
     Input('horizon-slider',  'value'),
     Input('main-tabs',       'active_tab'),
@@ -1658,19 +1658,32 @@ def update_prices(key, end_year, active_tab, theme):
     if not filtered:
         return b, b
 
-    summary, prices_df, _, _ = build_summary(filtered)
-    fig_vwap = px.line(summary, x='Year', y='Avg_Price', title='Volume-Weighted Average Price ($/GJ)',
-                       template=tmpl, labels={'Avg_Price': '$/GJ'})
-    fig_vwap.update_yaxes(range=[0, 150])
-
+    _, prices_df, _, _ = build_summary(filtered)
     demand_nodes = static_data['nodes'][static_data['nodes']['Type'] == 'Demand']['Name'].tolist()
-    nodal_p  = prices_df.groupby(['Year','Node'])['Price'].mean().reset_index()
-    nf       = nodal_p[nodal_p['Node'].isin(demand_nodes)]
-    fig_n    = px.line(nf, x='Year', y='Price', color='Node',
-                       title='Nodal Prices — Demand Centres ($/GJ)',
-                       template=tmpl, labels={'Price': '$/GJ'})
-    fig_n.update_yaxes(range=[0, 150])
-    return fig_vwap, fig_n
+    dpr        = prices_df[prices_df['Node'].isin(demand_nodes)]
+    nodal_mean = dpr.groupby(['Year', 'Node'])['Price'].mean().reset_index()
+    # Split demand centres by the highest annual-mean price they reach: those
+    # climbing to the $300 shortage cap vs those staying low. Each chart then
+    # auto-scales to its own group, so the low-priced centres aren't crushed
+    # onto a 0-300 axis by a centre pegged at the cap.
+    ann    = nodal_mean.groupby('Node')['Price'].max()
+    hit    = [n for n in demand_nodes if ann.get(n, 0) >= 150]
+    no_hit = [n for n in demand_nodes if n not in hit]
+
+    def _price_fig(nodes, title):
+        sub = nodal_mean[nodal_mean['Node'].isin(nodes)]
+        if sub.empty:
+            f = blank_fig(tmpl)
+            f.update_layout(title=title)
+            return f
+        f = px.line(sub, x='Year', y='Price', color='Node', title=title,
+                    template=tmpl, labels={'Price': '$/GJ'})
+        f.update_yaxes(rangemode='tozero')
+        return f
+
+    fig_high = _price_fig(hit, 'Demand Centres reaching the $300 cap — annual mean ($/GJ)')
+    fig_low  = _price_fig(no_hit, 'Demand Centres staying below the cap — annual mean ($/GJ)')
+    return fig_high, fig_low
 
 # ---------------------------------------------------------------------------
 # Expansions
