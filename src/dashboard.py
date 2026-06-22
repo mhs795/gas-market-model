@@ -1613,23 +1613,25 @@ def update_storage(key, end_year, active_tab, theme):
     for r in filtered:
         if r.get('storage'):
             df = pd.DataFrame(r['storage'])
-            df['GlobalDay'] = df['Day'] + (r['Year'] - 2025) * 365
+            df['Date'] = pd.to_datetime(str(r['Year']) + df['Day'].astype(int).astype(str).str.zfill(3), format='%Y%j')
             frames.append(df)
 
     if not frames:
         return b, md_alert('No storage data available.', 'info')
 
     df_s = pd.concat(frames)
-    fig_inv = px.line(df_s, x='GlobalDay', y='Inventory', color='Node',
+    fig_inv = px.line(df_s, x='Date', y='Inventory', color='Node',
                       title='Storage Inventory (TJ)', template=tmpl,
-                      labels={'GlobalDay': 'Days from 2025', 'Inventory': 'TJ'})
+                      labels={'Date': '', 'Inventory': 'TJ'}, render_mode='webgl')
+    fig_inv.update_xaxes(tickformat='%Y', dtick='M12')
     fig_inv.update_layout(xaxis_rangeslider_visible=True)
 
     if 'Injection' in df_s.columns and 'Withdrawal' in df_s.columns:
         df_s['RelFlow'] = df_s['Injection'] - df_s['Withdrawal']
-        fig_act = px.bar(df_s, x='GlobalDay', y='RelFlow', color='Node',
+        fig_act = px.bar(df_s, x='Date', y='RelFlow', color='Node',
                          title='Net Storage Activity (TJ/d)', template=tmpl,
-                         labels={'GlobalDay': 'Days from 2025', 'RelFlow': 'TJ/d'})
+                         labels={'Date': '', 'RelFlow': 'TJ/d'})
+        fig_act.update_xaxes(tickformat='%Y', dtick='M12')
         activity = dcc.Graph(figure=fig_act)
     else:
         activity = md_alert('Injection/Withdrawal data not in saved results — clear and re-run.', 'warn')
@@ -1774,28 +1776,36 @@ def update_industrial(key, end_year, active_tab, theme):
     filtered = get_filtered(key, end_year)
     if not filtered:
         return b
-    # Curtailable large-user demand (GPG + industrial): served vs shed per year.
-    rows = []
+    # Curtailable large-user demand (GPG + industrial): served vs shed, monthly.
+    parts = []
     for r in filtered:
         yr = r['Year']
         for stream, lbl in (('gpg', 'GPG'), ('industrial', 'Large Industrial')):
             df = pd.DataFrame(r.get(stream, []))
             if df.empty:
                 continue
-            rows.append({'Year': yr, 'Tier': f'{lbl} served', 'PJ': df['Served'].sum() / 1000})
-            cur = df['Curtailed'].sum() / 1000
-            if cur > 0.001:
-                rows.append({'Year': yr, 'Tier': f'{lbl} curtailed', 'PJ': cur})
-    if rows:
-        dd = pd.DataFrame(rows)
-        cmap = {'GPG served': '#2563eb', 'GPG curtailed': '#93c5fd',
-                'Large Industrial served': '#b45309', 'Large Industrial curtailed': '#fcd34d'}
-        fig = px.area(dd, x='Year', y='PJ', color='Tier', color_discrete_map=cmap,
-                      title='GPG & Large-Industrial Gas Demand — served vs curtailed (PJ)',
-                      template=tmpl)
-        fig.update_yaxes(rangemode='tozero')
-        return fig
-    return b
+            df = df.copy()
+            df['Date'] = pd.to_datetime(str(yr) + df['Day'].astype(int).astype(str).str.zfill(3), format='%Y%j')
+            df['Tier_base'] = lbl
+            parts.append(df[['Date', 'Tier_base', 'Served', 'Curtailed']])
+    if not parts:
+        return b
+    allr = pd.concat(parts)
+    allr['Month'] = allr['Date'].dt.to_period('M').dt.to_timestamp()
+    g = allr.groupby(['Month', 'Tier_base'])[['Served', 'Curtailed']].sum().reset_index()
+    rows = []
+    for _, x in g.iterrows():
+        rows.append({'Month': x['Month'], 'Tier': f"{x['Tier_base']} served", 'PJ': x['Served'] / 1000})
+        if x['Curtailed'] / 1000 > 0.0001:
+            rows.append({'Month': x['Month'], 'Tier': f"{x['Tier_base']} curtailed", 'PJ': x['Curtailed'] / 1000})
+    dd = pd.DataFrame(rows)
+    cmap = {'GPG served': '#2563eb', 'GPG curtailed': '#93c5fd',
+            'Large Industrial served': '#b45309', 'Large Industrial curtailed': '#fcd34d'}
+    fig = px.area(dd, x='Month', y='PJ', color='Tier', color_discrete_map=cmap,
+                  title='GPG & Large-Industrial Gas — served vs curtailed (monthly, PJ)',
+                  template=tmpl)
+    fig.update_yaxes(rangemode='tozero')
+    return fig
 
 # ---------------------------------------------------------------------------
 # Theme toggle
