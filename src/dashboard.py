@@ -1667,10 +1667,10 @@ def update_prices(key, end_year, active_tab, theme):
     dpr = dpr[dpr['Node'].isin(price_nodes)].copy()
     dpr['Date'] = pd.to_datetime(dpr['Year'].astype(str) + dpr['Day'].astype(int).astype(str).str.zfill(3),
                                  format='%Y%j')
-    # Quarterly-average price (~4 points/year): smooths daily noise while keeping
+    # Monthly-average price (~12 points/year): smooths daily noise while keeping
     # the seasonal (winter) signal.
-    dpr['Quarter'] = dpr['Date'].dt.to_period('Q').dt.to_timestamp()
-    q = dpr.groupby(['Quarter', 'Node'])['Price'].mean().reset_index()
+    dpr['Month'] = dpr['Date'].dt.to_period('M').dt.to_timestamp()
+    q = dpr.groupby(['Month', 'Node'])['Price'].mean().reset_index()
     # Split centres by the highest quarterly price they reach (cap-bound vs low)
     # so each chart auto-scales to its own group.
     ann    = q.groupby('Node')['Price'].max()
@@ -1678,18 +1678,18 @@ def update_prices(key, end_year, active_tab, theme):
     no_hit = [n for n in price_nodes if n not in hit]
 
     def _price_fig(nodes, title):
-        sub = q[q['Node'].isin(nodes)].sort_values('Quarter')
+        sub = q[q['Node'].isin(nodes)].sort_values('Month')
         if sub.empty:
             f = blank_fig(tmpl)
             f.update_layout(title=title)
             return f
-        f = px.line(sub, x='Quarter', y='Price', color='Node', title=title,
-                    template=tmpl, labels={'Price': '$/GJ', 'Quarter': ''})
+        f = px.line(sub, x='Month', y='Price', color='Node', title=title,
+                    template=tmpl, labels={'Price': '$/GJ', 'Month': ''})
         f.update_yaxes(rangemode='tozero')
         return f
 
-    fig_high = _price_fig(hit, 'Demand & LNG nodes reaching the $300 cap — quarterly avg ($/GJ)')
-    fig_low  = _price_fig(no_hit, 'Demand & LNG nodes staying below the cap — quarterly avg ($/GJ)')
+    fig_high = _price_fig(hit, 'Demand & LNG nodes reaching the $300 cap — monthly avg ($/GJ)')
+    fig_low  = _price_fig(no_hit, 'Demand & LNG nodes staying below the cap — monthly avg ($/GJ)')
     return fig_high, fig_low
 
 # ---------------------------------------------------------------------------
