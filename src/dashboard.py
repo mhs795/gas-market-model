@@ -1658,31 +1658,34 @@ def update_prices(key, end_year, active_tab, theme):
     if not filtered:
         return b, b
 
-    _, prices_df, _, _ = build_summary(filtered)
+    # Daily nodal prices for the demand centres over the selected horizon.
+    frames = [pd.DataFrame(r['prices']).assign(Year=r['Year']) for r in filtered if r['prices']]
+    if not frames:
+        return b, b
     demand_nodes = static_data['nodes'][static_data['nodes']['Type'] == 'Demand']['Name'].tolist()
-    dpr        = prices_df[prices_df['Node'].isin(demand_nodes)]
-    nodal_mean = dpr.groupby(['Year', 'Node'])['Price'].mean().reset_index()
-    # Split demand centres by the highest annual-mean price they reach: those
-    # climbing to the $300 shortage cap vs those staying low. Each chart then
-    # auto-scales to its own group, so the low-priced centres aren't crushed
-    # onto a 0-300 axis by a centre pegged at the cap.
-    ann    = nodal_mean.groupby('Node')['Price'].max()
+    dpr = pd.concat(frames)
+    dpr = dpr[dpr['Node'].isin(demand_nodes)].copy()
+    dpr['Date'] = pd.to_datetime(dpr['Year'].astype(str) + dpr['Day'].astype(int).astype(str).str.zfill(3),
+                                 format='%Y%j')
+    # Split centres by the highest annual-mean price they reach (cap-bound vs
+    # low) so each daily chart auto-scales to its own group.
+    ann    = dpr.groupby(['Year', 'Node'])['Price'].mean().groupby('Node').max()
     hit    = [n for n in demand_nodes if ann.get(n, 0) >= 150]
     no_hit = [n for n in demand_nodes if n not in hit]
 
     def _price_fig(nodes, title):
-        sub = nodal_mean[nodal_mean['Node'].isin(nodes)]
+        sub = dpr[dpr['Node'].isin(nodes)].sort_values('Date')
         if sub.empty:
             f = blank_fig(tmpl)
             f.update_layout(title=title)
             return f
-        f = px.line(sub, x='Year', y='Price', color='Node', title=title,
-                    template=tmpl, labels={'Price': '$/GJ'})
+        f = px.line(sub, x='Date', y='Price', color='Node', title=title,
+                    template=tmpl, labels={'Price': '$/GJ'}, render_mode='webgl')
         f.update_yaxes(rangemode='tozero')
         return f
 
-    fig_high = _price_fig(hit, 'Demand Centres reaching the $300 cap — annual mean ($/GJ)')
-    fig_low  = _price_fig(no_hit, 'Demand Centres staying below the cap — annual mean ($/GJ)')
+    fig_high = _price_fig(hit, 'Demand Centres reaching the $300 cap — daily ($/GJ)')
+    fig_low  = _price_fig(no_hit, 'Demand Centres staying below the cap — daily ($/GJ)')
     return fig_high, fig_low
 
 # ---------------------------------------------------------------------------
