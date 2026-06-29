@@ -1124,12 +1124,26 @@ def clear_results(n, refresh):
 @app.callback(
     Output('run-status', 'children', allow_duplicate=True),
     Input('regen-btn', 'n_clicks'),
+    background=True,
+    running=[
+        (Output('run-btn',   'disabled'), True, False),
+        (Output('batch-btn', 'disabled'), True, False),
+        (Output('regen-btn', 'disabled'), True, False),
+        (Output('solver-progress', 'style'),
+         {'display': 'block'}, {'display': 'none'}),
+        (Output('run-status', 'children'), '⏳  Regenerating data…', ''),
+    ],
+    progress=[Output('solver-progress', 'value'), Output('solver-progress', 'label')],
     prevent_initial_call=True,
 )
-def regen_demand(n):
+def regen_demand(set_progress, n):
     if not n:
         return no_update
-    regenerate_all()
+    def _cb(label, frac):
+        pct = int(frac * 100)
+        set_progress((pct, f'{label} — {pct}%'))
+    regenerate_all(progress=_cb)
+    set_progress((100, 'Complete — 100%'))
     return '✓  All data regenerated from source'
 
 # ---------------------------------------------------------------------------
