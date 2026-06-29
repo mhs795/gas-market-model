@@ -14,7 +14,8 @@ class GasMarketModel:
         self.year = year
         self.already_built = already_built if already_built else []
         self.adgsm_enabled = adgsm_enabled
-        
+        self.solved = False
+
         base_path = os.path.dirname(__file__)
 
         # --- Curtailable large-user demand (GPG + large industrial) ---------
@@ -178,7 +179,9 @@ class GasMarketModel:
             res = cbc.solve(m, tee=False)
             if res.solver.termination_condition in [pyo.TerminationCondition.optimal,
                                                      pyo.TerminationCondition.feasible]:
+                self.solved = True
                 return "ok"
+            self.solved = False
             return str(res.solver.termination_condition)
 
         # MIP solve
@@ -186,6 +189,7 @@ class GasMarketModel:
         res = cbc.solve(m, tee=False)
         if res.solver.termination_condition not in [pyo.TerminationCondition.optimal,
                                                      pyo.TerminationCondition.feasible]:
+            self.solved = False
             return str(res.solver.termination_condition)
 
         # Fix binary decisions then re-solve as pure LP for dual values (prices)
@@ -193,6 +197,7 @@ class GasMarketModel:
             m.build[e].fix(pyo.value(m.build[e]))
         m.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
         cbc.solve(m, tee=False)
+        self.solved = True
         return "ok"
 
     def get_results(self):
@@ -238,4 +243,5 @@ class GasMarketModel:
         for e in m.Expansion:
             if pyo.value(m.build[e]) > 0.5: res['builds'].append(e)
         res['total_cost'] = pyo.value(m.obj)
+        res['solved'] = getattr(self, 'solved', True)
         return res
