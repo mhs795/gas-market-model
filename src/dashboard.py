@@ -813,7 +813,7 @@ sidebar = html.Div(className='md-sidebar', children=[
 
         html.Button('▶  Run Scenario',       id='run-btn',   className='md-btn md-btn-filled'),
         html.Button('⚡  Run All Scenarios',  id='batch-btn', className='md-btn md-btn-tonal'),
-        html.Button('↺  Regen Demand Data',  id='regen-btn', className='md-btn md-btn-text'),
+        html.Button('↺  Regenerate All Data', id='regen-btn', className='md-btn md-btn-text'),
         html.Button('✕  Clear Results',      id='clear-btn', className='md-btn md-btn-danger'),
 
         html.Div(id='run-status', className='md-status'),
