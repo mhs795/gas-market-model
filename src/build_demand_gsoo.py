@@ -1,11 +1,11 @@
 """
-Re-base the node distribution demand (demand_2050.csv) on the AEMO 2026 GSOO
-Step Change scenario. This makes Step Change the model's central case; the
-existing scenario levers (Winter, LNG, ADGSM in batch_solve.py / gui.py) then
-layer multiplicatively on top.
+Re-base the node distribution demand on an AEMO 2026 GSOO baseline scenario. The
+chosen baseline (Step Change / Accelerated Transition / Slower Growth) becomes the
+model's central case; the scenario levers (Winter, LNG, ADGSM in solve.py /
+batch_solve.py / gui.py) then layer multiplicatively on top of it.
 
 Replaces the arbitrary per-node growth rates in generate_data_2050.py with
-empirically-grounded GSOO Step Change trajectories:
+empirically-grounded GSOO trajectories:
   * City nodes (Sydney, Melbourne, Adelaide, Brisbane) -- city-gate distribution
     demand, dominantly residential & small commercial (Tariff V) -- follow the
     GSOO ResComm trajectory (Figure 17): a steep electrification-driven decline.
@@ -16,7 +16,9 @@ The 2026 base level is the empirical daily shape (demand_profiles.csv + LNG
 calibration), and GSOO indices are applied relative to 2026 (clamped to the
 2026-2045 GSOO horizon; 2045 held flat to 2050). Deterministic (no random noise).
 
-Output: data/demand_2050.csv  (Year, Day, Node, Demand TJ/day)
+Output: data/demand_<scenario>.csv  (Year, Day, Node, Demand TJ/day).
+For the StepChange baseline the legacy filename data/demand_2050.csv is also
+written, so existing tooling keeps working.
 """
 import os
 import numpy as np
@@ -29,11 +31,14 @@ GSOO = os.path.join(DATA, "gsoo")
 CITY_NODES = {"Sydney", "Melbourne", "Adelaide", "Brisbane"}
 YEARS = np.arange(2025, 2051)
 
+# Baseline scenarios -> output filename slug. Mirrors build_gsoo_scenarios.SCENARIOS.
+SCENARIOS = ["StepChange", "Accelerated", "SlowerGrowth"]
 
-def _gsoo_index(sector, lo=2026, hi=2045, base=2026):
-    """Year -> level relative to the base year, for a GSOO sector, clamped."""
-    annual = pd.read_csv(os.path.join(GSOO, "annual_sector_stepchange.csv"))
-    s = annual[annual.Sector == sector].set_index("Year")["PJ_per_year"].to_dict()
+
+def _gsoo_index(annual, scenario, sector, lo=2026, hi=2045, base=2026):
+    """Year -> level relative to the base year, for a GSOO sector/scenario, clamped."""
+    s = annual[(annual.Scenario == scenario) & (annual.Sector == sector)
+               ].set_index("Year")["PJ_per_year"].to_dict()
     base_val = s[base]
     def idx(year):
         y = min(max(int(year), lo), hi)
@@ -41,7 +46,8 @@ def _gsoo_index(sector, lo=2026, hi=2045, base=2026):
     return idx
 
 
-def build():
+def build(scenario="StepChange"):
+    annual = pd.read_csv(os.path.join(GSOO, "annual_sector.csv"))
     base_trace = pd.read_csv(os.path.join(DATA, "demand_profiles.csv"))
     lng_params = pd.read_csv(os.path.join(DATA, "lng_parameters.csv")).set_index("Parameter")["Value"].to_dict()
 
@@ -53,8 +59,8 @@ def build():
     aplng_trace = daily_trace[daily_trace["Node"] == "APLNG"]
     scaling_factor = lng_params["lng_daily_target"] / aplng_trace["Demand"].mean()
 
-    rescomm_idx = _gsoo_index("ResComm")
-    lng_idx = _gsoo_index("LNG")
+    rescomm_idx = _gsoo_index(annual, scenario, "ResComm")
+    lng_idx = _gsoo_index(annual, scenario, "LNG")
 
     rows = []
     for year in YEARS:
@@ -76,18 +82,26 @@ def build():
                          "Demand": round(max(0.0, r["Demand"] * factor), 4)})
 
     df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(DATA, "demand_2050.csv"), index=False)
+    out_name = f"demand_{scenario}.csv"
+    df.to_csv(os.path.join(DATA, out_name), index=False)
+    if scenario == "StepChange":
+        df.to_csv(os.path.join(DATA, "demand_2050.csv"), index=False)  # legacy alias
 
     ann = (df.groupby(["Year", "Node"])["Demand"].sum() / 1000).unstack().round(1)
     cols = [c for c in ["Adelaide", "Brisbane", "Melbourne", "Sydney", "APLNG", "GLNG", "QCLNG"] if c in ann.columns]
-    print("=== Annual PJ by node/year (GSOO Step Change central case) ===")
+    print(f"=== Annual PJ by node/year (GSOO {scenario}) ===")
     print(ann.loc[[2026, 2030, 2035, 2040, 2045], cols].to_string())
     city = ann[[c for c in ["Adelaide", "Brisbane", "Melbourne", "Sydney"] if c in ann.columns]].sum(axis=1)
     lng = ann[[c for c in ["APLNG", "GLNG", "QCLNG"] if c in ann.columns]].sum(axis=1)
     print("\nCity-node total PJ:", {y: round(city[y], 0) for y in (2026, 2035, 2045)})
     print("LNG-node total PJ :", {y: round(lng[y], 0) for y in (2026, 2035, 2045)})
-    print(f"Wrote {len(df)} rows -> data/demand_2050.csv")
+    print(f"Wrote {len(df)} rows -> data/{out_name}")
+
+
+def build_all():
+    for s in SCENARIOS:
+        build(s)
 
 
 if __name__ == "__main__":
-    build()
+    build_all()

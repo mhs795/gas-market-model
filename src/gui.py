@@ -88,7 +88,23 @@ if 'all_scenarios' not in st.session_state:
     else: st.session_state['all_scenarios'] = {}
 
 # --- Sidebar ---
-st.sidebar.header("Scenario Configuration")
+# AEMO 2026 GSOO baseline scenarios. The baseline sets the underlying demand
+# trajectory; the Winter/LNG levers below then layer on top of it.
+BASELINE_OPTIONS = {
+    "Step Change (central)": "StepChange",
+    "Accelerated Transition": "Accelerated",
+    "Slower Growth": "SlowerGrowth",
+}
+
+def pretty_key(k):
+    return (k.replace("Base_", "").replace("_ADGSM_False", "").replace("_ADGSM_True", " (ADGSM)")
+             .replace("_Winter_", " | Winter ").replace("_LNG_", " | LNG "))
+
+st.sidebar.header("Baseline")
+baseline_label = st.sidebar.selectbox("GSOO Baseline Scenario", options=list(BASELINE_OPTIONS.keys()), index=0)
+baseline = BASELINE_OPTIONS[baseline_label]
+
+st.sidebar.header("Scenario Levers")
 winter_level = st.sidebar.select_slider("Southern Winter Stress", options=["Low", "Medium", "High"], value="Medium")
 lng_level = st.sidebar.select_slider("Global LNG Demand", options=["Low", "Medium", "High"], value="Medium")
 # adgsm_enabled = st.sidebar.toggle("ADGSM Domestic Reservation", value=False)
@@ -117,8 +133,8 @@ if st.sidebar.button("🚀 Run Current Scenario"):
         progress_bar.progress(progress)
 
     try:
-        res = solve_scenario(winter_level, lng_level, adgsm_enabled=adgsm_enabled, mip_gap=mip_gap, callback=annual_callback)
-        key = f"ADGSM_{adgsm_enabled}_Winter_{winter_level}_LNG_{lng_level}"
+        res = solve_scenario(winter_level, lng_level, adgsm_enabled=adgsm_enabled, mip_gap=mip_gap, callback=annual_callback, baseline=baseline)
+        key = f"Base_{baseline}_ADGSM_{adgsm_enabled}_Winter_{winter_level}_LNG_{lng_level}"
         st.session_state['all_scenarios'][key] = res
         st.session_state['current_key'] = key
         save_results(); st.rerun()
@@ -145,14 +161,14 @@ if st.sidebar.button("📊 Run All Scenarios (Batch)"):
         for w in winters:
             for l in lngs:
                 count += 1
-                key = f"ADGSM_{a_opt}_Winter_{w}_LNG_{l}"
-                
-                overall_status.text(f"Scenario {count}/{total_scenarios}")
+                key = f"Base_{baseline}_ADGSM_{a_opt}_Winter_{w}_LNG_{l}"
+
+                overall_status.text(f"Scenario {count}/{total_scenarios} ({baseline_label})")
                 overall_progress.progress(count / total_scenarios)
 
                 if key not in st.session_state['all_scenarios']:
                     try:
-                        res = solve_scenario(w, l, adgsm_enabled=a_opt, mip_gap=mip_gap, callback=batch_annual_callback)
+                        res = solve_scenario(w, l, adgsm_enabled=a_opt, mip_gap=mip_gap, callback=batch_annual_callback, baseline=baseline)
                         st.session_state['all_scenarios'][key] = res
                         save_results()
                     except Exception as e: st.error(f"Error in {key}: {e}"); st.stop()
@@ -173,7 +189,7 @@ if not st.session_state['all_scenarios']:
 
 available_keys = list(st.session_state['all_scenarios'].keys())
 if st.session_state.get('current_key') not in available_keys: st.session_state['current_key'] = available_keys[0]
-selected_key = st.sidebar.selectbox("Selected Result", options=available_keys, index=available_keys.index(st.session_state['current_key']))
+selected_key = st.sidebar.selectbox("Selected Result", options=available_keys, index=available_keys.index(st.session_state['current_key']), format_func=pretty_key)
 if selected_key != st.session_state['current_key']:
     st.session_state['current_key'] = selected_key; save_results()
 

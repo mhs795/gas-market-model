@@ -23,7 +23,19 @@ src/data/gpg_facilities.csv
 src/data/industrial_facilities_bbg.csv
 src/data/curtailment_params.csv
 src/data/demand_decomposition_validation.csv
+# Per-baseline generated demand files (one set per GSOO baseline scenario) plus
+# the legacy _gsoo aliases. NOTE: demand_profiles.csv is a tracked SOURCE input,
+# so these patterns are kept specific to the generated baselines.
+src/data/demand_StepChange.csv
+src/data/demand_Accelerated.csv
+src/data/demand_SlowerGrowth.csv
+src/data/gpg_demand_profile_StepChange.csv
+src/data/gpg_demand_profile_Accelerated.csv
+src/data/gpg_demand_profile_SlowerGrowth.csv
 src/data/gpg_demand_profile_gsoo.csv
+src/data/industrial_demand_profile_StepChange.csv
+src/data/industrial_demand_profile_Accelerated.csv
+src/data/industrial_demand_profile_SlowerGrowth.csv
 src/data/industrial_demand_profile_gsoo.csv
 src/data/gsoo/
 

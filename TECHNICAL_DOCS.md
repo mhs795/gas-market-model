@@ -9,20 +9,24 @@ This document provides a comprehensive overview of the data sources, modeling as
 The model is designed to align with the **Australian Energy Market Operator (AEMO)** forecasting and planning frameworks.
 
 ### 1.1 Demand Profiles (2025–2050)
-The model's central case is the **AEMO 2026 Gas Statement of Opportunities (GSOO)
-"Step Change"** scenario (the Draft-2026-ISP-derived, gas-regionalised forecast; the
-final 2026 ISP, published 25 June 2026, defers to the GSOO for gas demand). The
-daily *shape* of demand comes from empirical **Gas Bulletin Board (GBB) Actual Flow
-and Storage** data; the GSOO sets the *annual level*.
+The model's demand is built from the **AEMO 2026 Gas Statement of Opportunities
+(GSOO)** (the Draft-2026-ISP-derived, gas-regionalised forecast; the final 2026 ISP,
+published 25 June 2026, defers to the GSOO for gas demand). The daily *shape* of
+demand comes from empirical **Gas Bulletin Board (GBB) Actual Flow and Storage**
+data; the GSOO sets the *annual level*.
 
-*   **Primary Scenario:** **"Step Change"** (AEMO's most likely path to Net Zero), used as the deterministic central case. The Winter, LNG and ADGSM scenario levers then layer multiplicatively on top.
-*   **Re-basing method (2026-06-29):** Each demand sector is re-based onto its GSOO Step Change annual trajectory while the empirical daily profile shape is preserved (shape correlation 1.0 vs the GBB trace; only the annual level is scaled). This replaced the earlier arbitrary per-node growth rates (e.g. fixed Melbourne −4%/yr, Sydney −3%/yr) with empirically-grounded GSOO indices applied relative to 2026 (clamped to the 2026–2045 GSOO horizon, then held flat to 2050).
+*   **Selectable baselines (2026-06-30):** The user picks one of the three AEMO 2026 GSOO demand scenarios as the model **baseline** via a dropdown in the dashboard:
+    *   **Step Change** — central case, AEMO's most likely path to Net Zero.
+    *   **Accelerated Transition** — faster electrification: steepest ResComm decline, highest green-industrial growth, fastest LNG run-down, strongest near-term GPG firming.
+    *   **Slower Growth** — demand held higher for longer (ResComm/LNG decline more slowly).
+    The Winter, LNG and ADGSM scenario levers then layer multiplicatively on top of whichever baseline is chosen. Each baseline has its own generated demand files (`demand_<baseline>.csv`, `gpg_demand_profile_<baseline>.csv`, `industrial_demand_profile_<baseline>.csv`), and `model.py` / `solve.py` load the set matching the selection. *Note:* "Progressive Change" is **not** a 2026 GSOO scenario (it belongs to the older 2025 GSOO vintage), so the model uses the consistent 2026 GSOO trio above.
+*   **Re-basing method (2026-06-29):** Each demand sector is re-based onto its GSOO annual trajectory (for the chosen baseline) while the empirical daily profile shape is preserved (shape correlation 1.0 vs the GBB trace; only the annual level is scaled). This replaced the earlier arbitrary per-node growth rates (e.g. fixed Melbourne −4%/yr, Sydney −3%/yr) with empirically-grounded GSOO indices applied relative to 2026 (clamped to the 2026–2045 GSOO horizon, then held flat to 2050).
     *   **City nodes (Sydney, Melbourne, Adelaide, Brisbane):** city-gate distribution demand (dominantly Tariff V residential & small commercial) follows the GSOO **ResComm** trajectory — a steep electrification-driven decline. (`build_demand_gsoo.py`)
-    *   **GPG:** annual GPG demand anchored to the GSOO **NEM** trajectory, split regionally and made winter-peaking from the GSOO regional summer/winter peaks. Yarwun was reclassified GPG → industrial to match the GSOO. (`build_gpg_demand_gsoo.py`)
-    *   **Industrial:** the GSOO industrial trajectory is applied as a year index on the empirical BBLARGE levels (industrial here is a subset of the whole-sector GSOO industrial, so it is indexed rather than re-levelled). (`build_industrial_demand_gsoo.py`)
+    *   **GPG:** annual GPG demand anchored to the GSOO **NEM** trajectory, split regionally and made winter-peaking from the GSOO regional summer/winter peaks. AEMO publishes only a single 2026 GSOO GPG annual trajectory, so for the Accelerated/Slower-Growth baselines that trajectory is scaled by the ratio of the scenario's total modelled-region GPG peak to Step Change's (the regional peaks *are* published per scenario). Yarwun was reclassified GPG → industrial to match the GSOO. (`build_gpg_demand_gsoo.py`)
+    *   **Industrial:** the GSOO industrial trajectory (per baseline) is applied as a year index on the empirical BBLARGE levels (industrial here is a subset of the whole-sector GSOO industrial, so it is indexed rather than re-levelled). (`build_industrial_demand_gsoo.py`)
 *   **LNG Transition:**
-    *   **Gladstone Cluster (APLNG, GLNG, QCLNG):** Modeled as three distinct nodes sharing the Curtis Island shape, split per facility and scaled to the GSOO **LNG** trajectory (Figure 19) — replacing the previous flat assumption. 2026 is calibrated to ~3,650 TJ/day total QLD LNG demand.
-*   **GSOO extraction:** `build_gsoo_stepchange.py` reads the two GSOO workbooks (`daily-max-demand-summary.xlsx`, `report-figures-and-data.xlsx`) into `data/gsoo/` CSVs (annual sector trajectories, regional summer/winter peaks). `model.py` loads year-aware profiles (clamped 2026–2045, held to 2050) and falls back to the flat GBB trace if a profile is missing.
+    *   **Gladstone Cluster (APLNG, GLNG, QCLNG):** Modeled as three distinct nodes sharing the Curtis Island shape, split per facility and scaled to the GSOO **LNG** trajectory (Figure 19, per baseline) — replacing the previous flat assumption. 2026 is calibrated to ~3,650 TJ/day total QLD LNG demand.
+*   **GSOO extraction:** `build_gsoo_scenarios.py` reads the two GSOO workbooks (`daily-max-demand-summary.xlsx`, `report-figures-and-data.xlsx`) into `data/gsoo/` CSVs for **all three baselines** (`annual_sector.csv`, `regional_peak.csv` — each carrying a `Scenario` column — and `gpg_seasonal_max.csv`). `model.py` loads year-aware profiles (clamped 2026–2045, held to 2050) and falls back to the flat GBB trace if a profile is missing.
 *   **Source Links:**
     *   [AEMO 2026 GSOO Report Figures & Data](https://www.aemo.com.au/-/media/files/gas/national_planning_and_forecasting/gsoo/2026/2026-gas-statement-of-opportunities-report-figures-and-data.xlsx)
     *   [AEMO 2026 GSOO Supply Data](https://www.aemo.com.au/-/media/files/gas/national_planning_and_forecasting/gsoo/2026/2026-gas-statement-of-opportunities-supply-data.xlsx)
@@ -89,4 +93,4 @@ Nodal prices are extracted from the **Dual Variables** of the Nodal Balance cons
 *   `model.py`: The "Optimizer." Defines the variables, objective, and constraints (Pyomo + HiGHS via `appsi_highs`). Build binaries are relaxed to continuous after the MIP step so HiGHS returns the duals used for nodal prices.
 *   `gui.py` / `dashboard.py`: The "Interface." Handle user inputs, multi-year loops, and Plotly charts. Both expose the **Regenerate All Data** and **Run All Scenarios** buttons.
 *   `regenerate_data.py`: The "Builder." `regenerate_all()` runs the full demand-build pipeline from source in dependency order — this is what the **Regenerate All Data** button calls.
-*   `build_gsoo_stepchange.py`, `build_gpg_demand_gsoo.py`, `build_industrial_demand_gsoo.py`, `build_demand_gsoo.py`, `build_curtailable_demand.py`: The "Forecasters." Extract the GSOO Step Change trajectories and re-base each demand sector onto them, preserving the empirical GBB daily shapes. (These replaced the deleted `generate_data_2050.py`.)
+*   `build_gsoo_scenarios.py`, `build_gpg_demand_gsoo.py`, `build_industrial_demand_gsoo.py`, `build_demand_gsoo.py`, `build_curtailable_demand.py`: The "Forecasters." `build_gsoo_scenarios.py` extracts all three GSOO baseline trajectories (Step Change / Accelerated Transition / Slower Growth); the others re-base each demand sector onto each baseline (`build()` for one baseline, `build_all()` for all three), preserving the empirical GBB daily shapes. (These replaced the deleted `generate_data_2050.py`.)

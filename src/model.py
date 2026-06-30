@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 class GasMarketModel:
-    def __init__(self, nodes_df, arcs_df, supply_df, demand_df, expansion_df, contracts_df=None, year=2025, already_built=None, adgsm_enabled=False):
+    def __init__(self, nodes_df, arcs_df, supply_df, demand_df, expansion_df, contracts_df=None, year=2025, already_built=None, adgsm_enabled=False, baseline="StepChange"):
         self.nodes = nodes_df
         self.arcs = arcs_df
         self.supply = supply_df
@@ -13,6 +13,9 @@ class GasMarketModel:
         self.year = year
         self.already_built = already_built if already_built else []
         self.adgsm_enabled = adgsm_enabled
+        # AEMO 2026 GSOO baseline scenario: StepChange / Accelerated / SlowerGrowth.
+        # Selects which per-baseline GPG & industrial demand profiles to load.
+        self.baseline = baseline
         self.solved = False
 
         base_path = os.path.dirname(__file__)
@@ -44,12 +47,21 @@ class GasMarketModel:
                 return _load_profile(flat_fname)
             return sub.set_index(['Node', 'Day'])['Demand'].to_dict()
 
-        # GPG and industrial both re-based on GSOO 2026 Step Change (year-varying),
-        # falling back to the flat GBB profile if the GSOO file is absent.
-        self.gpg_demand = _load_year_profile("gpg_demand_profile_gsoo.csv",
-                                             "gpg_demand_profile.csv")
-        self.ind_demand = _load_year_profile("industrial_demand_profile_gsoo.csv",
-                                             "industrial_demand_profile.csv")
+        # GPG and industrial both re-based on the chosen GSOO 2026 baseline
+        # (year-varying). Each baseline has its own profile file; fall back to the
+        # legacy StepChange (_gsoo) file, then to the flat GBB profile, if absent.
+        def _baseline_profile(prefix, legacy, flat):
+            scen_file = f"{prefix}_{self.baseline}.csv"
+            if os.path.exists(os.path.join(data_dir, scen_file)):
+                return _load_year_profile(scen_file, flat)
+            return _load_year_profile(legacy, flat)
+
+        self.gpg_demand = _baseline_profile("gpg_demand_profile",
+                                            "gpg_demand_profile_gsoo.csv",
+                                            "gpg_demand_profile.csv")
+        self.ind_demand = _baseline_profile("industrial_demand_profile",
+                                            "industrial_demand_profile_gsoo.csv",
+                                            "industrial_demand_profile.csv")
         try:
             strikes = pd.read_csv(os.path.join(data_dir, "curtailment_params.csv")
                                   ).set_index('Tier')['StrikePrice'].to_dict()

@@ -41,11 +41,12 @@ The first run will take 2–3 minutes while dependencies install. After that, op
 > derived data file from source, then **Run All Scenarios** to populate the results
 > cache. After that the two-button workflow only needs repeating when source inputs change.
 
-1. Set **Winter Stress** and **LNG Demand** levels in the sidebar
-2. Click **Run Scenario** to solve one combination (~1–2 min)
-3. Click **Run All Scenarios** to pre-calculate all 9 combinations (~15 min)
-4. Click **Regenerate All Data** to rebuild all derived demand data from source (GBB + GSOO)
-5. Explore results across 6 tabs: Network Map, Production, Storage, Prices, Expansions, Industrial Use
+1. Pick a **GSOO Baseline** scenario — **Step Change**, **Accelerated Transition**, or **Slower Growth** — in the sidebar
+2. Set **Winter Stress** and **LNG Demand** levels (these layer on top of the chosen baseline)
+3. Click **Run Scenario** to solve one combination (~1–2 min)
+4. Click **Run All Scenarios** to pre-calculate all 9 Winter × LNG combinations for the selected baseline (~15 min). Switch baseline and re-run to batch another.
+5. Click **Regenerate All Data** to rebuild all derived demand data from source (GBB + GSOO, all three baselines)
+6. Explore results across 6 tabs: Network Map, Production, Storage, Prices, Expansions, Industrial Use
 
 ## Project Structure
 
@@ -61,14 +62,16 @@ The first run will take 2–3 minutes while dependencies install. After that, op
 
 The demand data is rebuilt from source by `src/regenerate_data.py` (the **Regenerate
 All Data** button), which runs the build pipeline in dependency order:
-`build_curtailable_demand` → `build_gsoo_stepchange` → `build_gpg_demand_gsoo` →
-`build_industrial_demand_gsoo` → `build_demand_gsoo`.
+`build_curtailable_demand` → `build_gsoo_scenarios` → `build_gpg_demand_gsoo` →
+`build_industrial_demand_gsoo` → `build_demand_gsoo`. The GSOO extract pulls all
+three baseline scenarios, and the demand builders emit one set of demand files per
+baseline (e.g. `demand_StepChange.csv`, `demand_Accelerated.csv`, `demand_SlowerGrowth.csv`).
 
 ## Technical Details
 
 - **Optimisation:** Pyomo with the HiGHS solver (`appsi_highs`)
 - **Network:** Nodal pipeline model covering eastern Australia
 - **Horizon:** 2025–2050 (annual dispatch, 365 days/year)
-- **Central case:** AEMO **2026 GSOO Step Change** (demand re-based on the GSOO; daily shapes from GBB actuals)
-- **Scenarios:** Winter stress × LNG demand (9 combinations), layered on the central case
+- **Baselines:** selectable AEMO **2026 GSOO** scenario — **Step Change** (central), **Accelerated Transition**, or **Slower Growth** (demand re-based on the GSOO; daily shapes from GBB actuals)
+- **Scenario levers:** Winter stress × LNG demand (9 combinations), layered on the chosen baseline
 - **Market mechanisms:** ADGSM domestic reservation, LNG netback pricing, long-term contracts

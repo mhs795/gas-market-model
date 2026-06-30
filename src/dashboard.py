@@ -744,6 +744,23 @@ app.index_string = f"""<!DOCTYPE html>
 
 LEVELS = ['Low', 'Medium', 'High']
 
+# AEMO 2026 GSOO baseline scenarios (label -> slug). The baseline sets the
+# underlying demand trajectory; the Winter/LNG levers then layer on top of it.
+BASELINES = [
+    {'label': 'Step Change (central)', 'value': 'StepChange'},
+    {'label': 'Accelerated Transition', 'value': 'Accelerated'},
+    {'label': 'Slower Growth', 'value': 'SlowerGrowth'},
+]
+BASELINE_LABEL = {b['value']: b['label'] for b in BASELINES}
+
+def pretty_key(k):
+    """Human-readable label for a scenario key Base_<base>_ADGSM_<x>_Winter_<w>_LNG_<l>."""
+    base = k.split('Base_', 1)[-1].split('_ADGSM', 1)[0] if 'Base_' in k else None
+    rest = k.split('_ADGSM_', 1)[-1] if '_ADGSM_' in k else k
+    rest = (rest.replace('False', '').replace('True', '(ADGSM)')
+                .replace('_Winter_', 'Winter ').replace('_LNG_', '  ·  LNG ').strip('_ '))
+    return f'{BASELINE_LABEL.get(base, base)}  ·  {rest}' if base else rest
+
 # ---------------------------------------------------------------------------
 # Helper – map arrowhead
 # ---------------------------------------------------------------------------
@@ -822,6 +839,15 @@ sidebar = html.Div(className='md-sidebar', children=[
                          striped=False, animated=False,
                          style={'display': 'none'}),
         ]),
+
+        html.Hr(className='md-divider'),
+
+        # ── Baseline ──────────────────────────────────────────────────────
+        html.P('Baseline', className='md-section-label'),
+
+        html.Span('GSOO Baseline Scenario', className='md-input-label'),
+        dcc.Dropdown(id='baseline-selector', options=BASELINES, value='StepChange',
+                     clearable=False, style={'marginBottom': '20px', 'fontSize': '12px'}),
 
         html.Hr(className='md-divider'),
 
@@ -1041,6 +1067,7 @@ def show_tab(active):
     State('winter-slider', 'value'),
     State('lng-slider',    'value'),
     State('gap-slider',    'value'),
+    State('baseline-selector', 'value'),
     State('refresh-counter', 'data'),
     background=True,
     running=[
@@ -1053,18 +1080,19 @@ def show_tab(active):
     progress=[Output('solver-progress', 'value'), Output('solver-progress', 'label')],
     prevent_initial_call=True,
 )
-def run_scenario(set_progress, n_clicks, wi, li, gap, refresh):
+def run_scenario(set_progress, n_clicks, wi, li, gap, baseline, refresh):
     w, l = LEVELS[wi], LEVELS[li]
+    baseline = baseline or 'StepChange'
     def _cb(yr, p):
         pct = int(p * 100)
         set_progress((pct, f'Solving {yr}… {pct}%'))
-    result = solve_scenario(w, l, adgsm_enabled=False, mip_gap=gap, callback=_cb)
-    key = f'ADGSM_False_Winter_{w}_LNG_{l}'
+    result = solve_scenario(w, l, adgsm_enabled=False, mip_gap=gap, callback=_cb, baseline=baseline)
+    key = f'Base_{baseline}_ADGSM_False_Winter_{w}_LNG_{l}'
     data = load_results()
     data['all_scenarios'][key] = result
     data['current_key'] = key
     save_results(data)
-    return (refresh or 0) + 1, f'✓  {key}'
+    return (refresh or 0) + 1, f'✓  {pretty_key(key)}'
 
 # ---------------------------------------------------------------------------
 # Run All Scenarios (background)
@@ -1074,6 +1102,7 @@ def run_scenario(set_progress, n_clicks, wi, li, gap, refresh):
     Output('run-status',      'children', allow_duplicate=True),
     Input('batch-btn', 'n_clicks'),
     State('gap-slider', 'value'),
+    State('baseline-selector', 'value'),
     State('refresh-counter', 'data'),
     background=True,
     running=[
@@ -1086,22 +1115,24 @@ def run_scenario(set_progress, n_clicks, wi, li, gap, refresh):
     progress=[Output('solver-progress', 'value'), Output('solver-progress', 'label')],
     prevent_initial_call=True,
 )
-def run_batch(set_progress, n_clicks, gap, refresh):
+def run_batch(set_progress, n_clicks, gap, baseline, refresh):
+    # Runs all Winter x LNG combos for the selected baseline (keeps the results
+    # pkl to a manageable size; switch baseline and re-run to batch another).
+    baseline = baseline or 'StepChange'
     combos = [(w, l) for w in LEVELS for l in LEVELS]
     data   = load_results()
     for i, (w, l) in enumerate(combos):
-        key = f'ADGSM_False_Winter_{w}_LNG_{l}'
+        key = f'Base_{baseline}_ADGSM_False_Winter_{w}_LNG_{l}'
         if key not in data['all_scenarios']:
-            pct_base = int(i / len(combos) * 100)
             def _cb(yr, p, _i=i, _n=len(combos), _w=w, _l=l):
                 overall = int((_i + p) / _n * 100)
-                set_progress((overall, f'Winter {_w} · LNG {_l} · Year {yr} — {overall}%'))
-            data['all_scenarios'][key] = solve_scenario(w, l, adgsm_enabled=False, mip_gap=gap, callback=_cb)
+                set_progress((overall, f'{BASELINE_LABEL.get(baseline, baseline)} · Winter {_w} · LNG {_l} · Year {yr} — {overall}%'))
+            data['all_scenarios'][key] = solve_scenario(w, l, adgsm_enabled=False, mip_gap=gap, callback=_cb, baseline=baseline)
             data['current_key'] = key
             save_results(data)
         pct = int((i + 1) / len(combos) * 100)
         set_progress((pct, f'Scenario {i+1}/{len(combos)} complete — {pct}%'))
-    return (refresh or 0) + 1, f'✓  Batch complete — {len(combos)} scenarios'
+    return (refresh or 0) + 1, f'✓  Batch complete — {len(combos)} scenarios ({BASELINE_LABEL.get(baseline, baseline)})'
 
 # ---------------------------------------------------------------------------
 # Clear
@@ -1171,7 +1202,7 @@ def update_selector(refresh, current):
         selected = data.get('current_key') or keys[0]
     results  = data['all_scenarios'].get(selected, [])
     max_year = max((r['Year'] for r in results), default=2050)
-    return [{'label': k.replace('ADGSM_False_Winter_','Winter ').replace('_LNG_',' · LNG ') , 'value': k} for k in keys], selected, max_year
+    return [{'label': pretty_key(k), 'value': k} for k in keys], selected, max_year
 
 # ---------------------------------------------------------------------------
 # Header chip + KPI row
@@ -1197,8 +1228,7 @@ def update_header_kpis(key, end_year):
         kpi_card('Total Supply', f"{summary['Production_PJ'].sum():,.0f} PJ"),
         kpi_card('New Projects', str(len(builds_df))),
     ]
-    label = key.replace('ADGSM_False_Winter_', 'Winter ').replace('_LNG_', '  ·  LNG ')
-    return label, chips
+    return pretty_key(key), chips
 
 # ---------------------------------------------------------------------------
 # Network Map
@@ -1506,7 +1536,7 @@ def _update_map_inner(key, end_year, map_year, options, dark=False):
                 name='Pipeline Expansion',
             ))
 
-    scenario_label = key.replace('ADGSM_False_Winter_','Winter ').replace('_LNG_',' · LNG ')
+    scenario_label = pretty_key(key)
     fig.update_layout(
         map=dict(style='carto-darkmatter' if dark else 'open-street-map', center=dict(lat=-31, lon=146), zoom=4.2),
         margin=dict(l=0, r=0, t=40, b=0), height=720,

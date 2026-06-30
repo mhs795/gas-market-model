@@ -8,17 +8,20 @@ them being committed to GitHub. Only source inputs are tracked:
   - data/other data/2026 GSOO/.../*.xlsx       (AEMO 2026 GSOO workbooks)
   - data/demand_profiles.csv, lng_parameters.csv, nodes/arcs/supply/... (config)
 
-Pipeline (order matters -- each step feeds the next):
+Pipeline (order matters -- each step feeds the next). The GSOO extract pulls all
+three baseline scenarios (Step Change / Accelerated Transition / Slower Growth),
+and the GPG/industrial/distribution builders emit one set of demand files per
+baseline (e.g. gpg_demand_profile_StepChange.csv, ..._Accelerated.csv, ...):
   1. build_curtailable_demand   GBB -> GPG/industrial base profiles + facilities
-  2. build_gsoo_stepchange      GSOO xlsx -> Step Change annual/regional extracts
-  3. build_gpg_demand_gsoo      -> gpg_demand_profile_gsoo.csv
-  4. build_industrial_demand_gsoo -> industrial_demand_profile_gsoo.csv (+Yarwun)
-  5. build_demand_gsoo          -> demand_2050.csv (node distribution + LNG)
+  2. build_gsoo_scenarios       GSOO xlsx -> per-scenario annual/regional extracts
+  3. build_gpg_demand_gsoo      -> gpg_demand_profile_<scenario>.csv (all baselines)
+  4. build_industrial_demand_gsoo -> industrial_demand_profile_<scenario>.csv (+Yarwun)
+  5. build_demand_gsoo          -> demand_<scenario>.csv (node distribution + LNG)
 
 Run the model scenarios afterwards via the "Run All Scenarios (Batch)" button.
 """
 import build_curtailable_demand
-import build_gsoo_stepchange
+import build_gsoo_scenarios
 import build_gpg_demand_gsoo
 import build_industrial_demand_gsoo
 import build_demand_gsoo
@@ -26,10 +29,10 @@ import build_demand_gsoo
 # (label, callable) in dependency order.
 STEPS = [
     ("GBB base profiles (GPG + industrial)", build_curtailable_demand.main),
-    ("GSOO Step Change extract", build_gsoo_stepchange.main),
-    ("GPG demand (GSOO Step Change)", build_gpg_demand_gsoo.build),
-    ("Industrial demand (GSOO Step Change)", build_industrial_demand_gsoo.build),
-    ("Node distribution + LNG demand (GSOO)", build_demand_gsoo.build),
+    ("GSOO scenario extract (3 baselines)", build_gsoo_scenarios.main),
+    ("GPG demand (all baselines)", build_gpg_demand_gsoo.build_all),
+    ("Industrial demand (all baselines)", build_industrial_demand_gsoo.build_all),
+    ("Node distribution + LNG demand (all baselines)", build_demand_gsoo.build_all),
 ]
 
 

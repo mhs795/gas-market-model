@@ -3,14 +3,19 @@ import os
 import time
 from model import GasMarketModel
 
-def load_data():
+def load_data(baseline="StepChange"):
     base_path = os.path.dirname(__file__)
     data_dir = os.path.join(base_path, "data")
+    # Node distribution + LNG demand for the chosen GSOO baseline; fall back to the
+    # legacy StepChange alias (demand_2050.csv) if the per-baseline file is absent.
+    demand_file = os.path.join(data_dir, f"demand_{baseline}.csv")
+    if not os.path.exists(demand_file):
+        demand_file = os.path.join(data_dir, "demand_2050.csv")
     return {
         'nodes': pd.read_csv(os.path.join(data_dir, "nodes.csv")),
         'arcs': pd.read_csv(os.path.join(data_dir, "arcs.csv")),
         'supply': pd.read_csv(os.path.join(data_dir, "supply.csv")).dropna(subset=['Node', 'Capacity', 'Cost']),
-        'demand': pd.read_csv(os.path.join(data_dir, "demand_2050.csv")),
+        'demand': pd.read_csv(demand_file),
         'expansion': pd.read_csv(os.path.join(data_dir, "expansion_options.csv")),
         'contracts': pd.read_csv(os.path.join(data_dir, "contracts.csv"))
     }
@@ -29,8 +34,8 @@ def get_lng_mult(scenario, year):
         else: return 1.1
     return 1.0
 
-def solve_scenario(winter, lng, adgsm_enabled=False, mip_gap=0.005, callback=None):
-    data = load_data()
+def solve_scenario(winter, lng, adgsm_enabled=False, mip_gap=0.005, callback=None, baseline="StepChange"):
+    data = load_data(baseline)
     built_projects = []
     scenario_results = []
     
@@ -64,11 +69,12 @@ def solve_scenario(winter, lng, adgsm_enabled=False, mip_gap=0.005, callback=Non
         demand_yr = demand_mod[demand_mod['Year'] == year].copy()
         
         model = GasMarketModel(
-            data['nodes'], data['arcs'], data['supply'], demand_yr, data['expansion'], 
+            data['nodes'], data['arcs'], data['supply'], demand_yr, data['expansion'],
             contracts_df=contracts_all if year <= 2040 else None,
-            year=year, 
-            already_built=built_projects, 
-            adgsm_enabled=adgsm_enabled
+            year=year,
+            already_built=built_projects,
+            adgsm_enabled=adgsm_enabled,
+            baseline=baseline
         )
         model.build_model()
         

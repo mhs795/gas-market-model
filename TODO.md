@@ -1,5 +1,6 @@
 # Gas Market Model TODOs
 
+- [x] ~~Make the GSOO baseline selectable (Step Change / Accelerated Transition / Slower Growth) via a dropdown, with the Winter/LNG levers layering on top of the chosen baseline (added & done 2026-06-30).~~
 - [ ] Deep dive into the Big-M approach for linearizing bilinear terms in optimization models (added 2026-06-06).
 - [x] ~~Refactor demand generation in 'gas_market_model/src/generate_data_2050.py' to transition from sine-curve seasonality to a trace-based system (from GEMINI.md).~~
 - [x] ~~Verify Gladstone Export Trunk Capacity: Re-assess the pipeline capacities for APLNG/GLNG/QCLNG feed lines based on the assumption that the 3600+ TJ/day demand figure is the correct AEMO benchmark (added 2026-06-06).~~
