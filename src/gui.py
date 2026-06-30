@@ -141,41 +141,44 @@ if st.sidebar.button("🚀 Run Current Scenario"):
     except Exception as e: st.error(f"Error: {e}")
 
 if st.sidebar.button("📊 Run All Scenarios (Batch)"):
+    # Every combination: all GSOO baselines x Winter x LNG (ADGSM off).
+    baselines = list(BASELINE_OPTIONS.values())
     adgsm_opts, winters, lngs = [False], ["Low", "Medium", "High"], ["Low", "Medium", "High"]
-    total_scenarios = len(adgsm_opts) * len(winters) * len(lngs)
-    
+    total_scenarios = len(baselines) * len(adgsm_opts) * len(winters) * len(lngs)
+
     st.sidebar.markdown("### Batch Progress")
     overall_status = st.sidebar.empty()
     overall_progress = st.sidebar.progress(0)
-    
+
     st.sidebar.markdown("### Current Scenario")
     annual_status = st.sidebar.empty()
     annual_progress = st.sidebar.progress(0)
-    
+
     def batch_annual_callback(year, progress):
         annual_status.text(f"Processing Year: {year}")
         annual_progress.progress(progress)
 
     count = 0
-    for a_opt in adgsm_opts:
-        for w in winters:
-            for l in lngs:
-                count += 1
-                key = f"Base_{baseline}_ADGSM_{a_opt}_Winter_{w}_LNG_{l}"
+    for b in baselines:
+        for a_opt in adgsm_opts:
+            for w in winters:
+                for l in lngs:
+                    count += 1
+                    key = f"Base_{b}_ADGSM_{a_opt}_Winter_{w}_LNG_{l}"
 
-                overall_status.text(f"Scenario {count}/{total_scenarios} ({baseline_label})")
-                overall_progress.progress(count / total_scenarios)
+                    overall_status.text(f"Scenario {count}/{total_scenarios} ({b})")
+                    overall_progress.progress(count / total_scenarios)
 
-                if key not in st.session_state['all_scenarios']:
-                    try:
-                        res = solve_scenario(w, l, adgsm_enabled=a_opt, mip_gap=mip_gap, callback=batch_annual_callback, baseline=baseline)
-                        st.session_state['all_scenarios'][key] = res
-                        save_results()
-                    except Exception as e: st.error(f"Error in {key}: {e}"); st.stop()
-                else:
-                    # Mark current scenario as done for the annual bar
-                    batch_annual_callback(2050, 1.0)
-    
+                    if key not in st.session_state['all_scenarios']:
+                        try:
+                            res = solve_scenario(w, l, adgsm_enabled=a_opt, mip_gap=mip_gap, callback=batch_annual_callback, baseline=b)
+                            st.session_state['all_scenarios'][key] = res
+                            save_results()
+                        except Exception as e: st.error(f"Error in {key}: {e}"); st.stop()
+                    else:
+                        # Mark current scenario as done for the annual bar
+                        batch_annual_callback(2050, 1.0)
+
     st.sidebar.success("All scenarios complete!"); st.rerun()
 
 if st.sidebar.button("🗑️ Clear All Results"):

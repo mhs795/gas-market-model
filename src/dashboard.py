@@ -1116,23 +1116,21 @@ def run_scenario(set_progress, n_clicks, wi, li, gap, baseline, refresh):
     prevent_initial_call=True,
 )
 def run_batch(set_progress, n_clicks, gap, baseline, refresh):
-    # Runs all Winter x LNG combos for the selected baseline (keeps the results
-    # pkl to a manageable size; switch baseline and re-run to batch another).
-    baseline = baseline or 'StepChange'
-    combos = [(w, l) for w in LEVELS for l in LEVELS]
+    # Runs every combination: all GSOO baselines x Winter x LNG (ADGSM off).
+    combos = [(b['value'], w, l) for b in BASELINES for w in LEVELS for l in LEVELS]
     data   = load_results()
-    for i, (w, l) in enumerate(combos):
-        key = f'Base_{baseline}_ADGSM_False_Winter_{w}_LNG_{l}'
+    for i, (b, w, l) in enumerate(combos):
+        key = f'Base_{b}_ADGSM_False_Winter_{w}_LNG_{l}'
         if key not in data['all_scenarios']:
-            def _cb(yr, p, _i=i, _n=len(combos), _w=w, _l=l):
+            def _cb(yr, p, _i=i, _n=len(combos), _b=b, _w=w, _l=l):
                 overall = int((_i + p) / _n * 100)
-                set_progress((overall, f'{BASELINE_LABEL.get(baseline, baseline)} · Winter {_w} · LNG {_l} · Year {yr} — {overall}%'))
-            data['all_scenarios'][key] = solve_scenario(w, l, adgsm_enabled=False, mip_gap=gap, callback=_cb, baseline=baseline)
+                set_progress((overall, f'{BASELINE_LABEL.get(_b, _b)} · Winter {_w} · LNG {_l} · Year {yr} — {overall}%'))
+            data['all_scenarios'][key] = solve_scenario(w, l, adgsm_enabled=False, mip_gap=gap, callback=_cb, baseline=b)
             data['current_key'] = key
             save_results(data)
         pct = int((i + 1) / len(combos) * 100)
         set_progress((pct, f'Scenario {i+1}/{len(combos)} complete — {pct}%'))
-    return (refresh or 0) + 1, f'✓  Batch complete — {len(combos)} scenarios ({BASELINE_LABEL.get(baseline, baseline)})'
+    return (refresh or 0) + 1, f'✓  Batch complete — {len(combos)} scenarios (all baselines)'
 
 # ---------------------------------------------------------------------------
 # Clear

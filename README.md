@@ -44,7 +44,7 @@ The first run will take 2–3 minutes while dependencies install. After that, op
 1. Pick a **GSOO Baseline** scenario — **Step Change**, **Accelerated Transition**, or **Slower Growth** — in the sidebar
 2. Set **Winter Stress** and **LNG Demand** levels (these layer on top of the chosen baseline)
 3. Click **Run Scenario** to solve one combination (~1–2 min)
-4. Click **Run All Scenarios** to pre-calculate all 9 Winter × LNG combinations for the selected baseline (~15 min). Switch baseline and re-run to batch another.
+4. Click **Run All Scenarios** to pre-calculate **every combination** — all 3 baselines × 3 Winter × 3 LNG = 27 scenarios (~45 min)
 5. Click **Regenerate All Data** to rebuild all derived demand data from source (GBB + GSOO, all three baselines)
 6. Explore results across 6 tabs: Network Map, Production, Storage, Prices, Expansions, Industrial Use
 
@@ -73,5 +73,5 @@ baseline (e.g. `demand_StepChange.csv`, `demand_Accelerated.csv`, `demand_Slower
 - **Network:** Nodal pipeline model covering eastern Australia
 - **Horizon:** 2025–2050 (annual dispatch, 365 days/year)
 - **Baselines:** selectable AEMO **2026 GSOO** scenario — **Step Change** (central), **Accelerated Transition**, or **Slower Growth** (demand re-based on the GSOO; daily shapes from GBB actuals)
-- **Scenario levers:** Winter stress × LNG demand (9 combinations), layered on the chosen baseline
+- **Scenario levers:** Winter stress × LNG demand (9 combinations) layered on the chosen baseline; the batch runs all 3 baselines × 9 = 27 scenarios
 - **Market mechanisms:** ADGSM domestic reservation, LNG netback pricing, long-term contracts
