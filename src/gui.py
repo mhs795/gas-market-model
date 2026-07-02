@@ -317,7 +317,7 @@ with tab_map:
         fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode='lines',
                                        line=dict(width=flow_w, color=color),
                                        opacity=0.9, text=hover, hoverinfo='text', showlegend=False))
-        add_arrowhead(fig, path[-2][0], path[-2][1], path[-1][0], path[-1][1], color, flow_w)
+        add_arrowhead(fig, path[-2][0], path[-2][1], path[-1][0], path[-1][1], '#90EE90', flow_w)
     
     # Nodes
     node_types, storage_info = static_data['nodes'].set_index('Name')['Type'].to_dict(), static_data['nodes'].set_index('Name')['StorageCapacity'].to_dict()

@@ -1359,7 +1359,7 @@ def _update_map_inner(key, end_year, map_year, options, dark=False):
             line=dict(width=fw+3, color=casing), opacity=1.0, hoverinfo='skip', showlegend=False))
         fig.add_trace(go.Scattermap(lat=lats, lon=lons, mode='lines',
             line=dict(width=fw, color=color), opacity=0.9, text=hover, hoverinfo='text', showlegend=False))
-        add_arrowhead(fig, path[-2][0], path[-2][1], path[-1][0], path[-1][1], color, fw)
+        add_arrowhead(fig, path[-2][0], path[-2][1], path[-1][0], path[-1][1], '#90EE90', fw)
 
     node_types  = static_data['nodes'].set_index('Name')['Type'].to_dict()
     def _node_sum(stream, col):
