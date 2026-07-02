@@ -57,18 +57,32 @@ def load_static_data():
         'expansion': pd.read_csv(os.path.join(data_dir, "expansion_options.csv"))
     }
 
-def add_arrowhead(fig, lat1, lon1, lat2, lon2, color, width, size=0.45):
-    d_lat, d_lon = lat2 - lat1, lon2 - lon1
-    length = np.sqrt(d_lat**2 + d_lon**2)
-    if length < 0.05: return
-    u_lat, u_lon = d_lat / length, d_lon / length
-    p_lat, p_lon = -u_lon, u_lat
-    tip_lat, tip_lon = lat1 + 0.7 * d_lat, lon1 + 0.7 * d_lon
-    b1_lat = tip_lat - size * u_lat + (size * 0.6) * p_lat
-    b1_lon = tip_lon - size * u_lon + (size * 0.6) * p_lon
-    b2_lat = tip_lat - size * u_lat - (size * 0.6) * p_lat
-    b2_lon = tip_lon - size * u_lon - (size * 0.6) * p_lon
-    fig.add_trace(go.Scattermapbox(lat=[b1_lat, tip_lat, b2_lat, b1_lat], lon=[b1_lon, tip_lon, b2_lon, b1_lon], mode='lines', fill="toself", fillcolor=color, line=dict(width=1, color=color), hoverinfo='skip', showlegend=False))
+def add_flow_arrows(fig, path, color, width, spacing=1.1, size=0.45):
+    """Draw arrowheads at regular intervals along a flow path so direction is clear."""
+    segs = []
+    for (la1, lo1), (la2, lo2) in zip(path[:-1], path[1:]):
+        length = np.sqrt((la2 - la1) ** 2 + (lo2 - lo1) ** 2)
+        if length > 1e-9:
+            segs.append((la1, lo1, (la2 - la1) / length, (lo2 - lo1) / length, length))
+    total = sum(s[4] for s in segs)
+    if total == 0:
+        return
+    n = max(1, int(total / spacing))
+    for i in range(1, n + 1):
+        target, acc = total * i / (n + 1), 0.0
+        for la1, lo1, u_lat, u_lon, length in segs:
+            if acc + length >= target:
+                dist = target - acc
+                c_lat, c_lon = la1 + u_lat * dist, lo1 + u_lon * dist
+                p_lat, p_lon = -u_lon, u_lat
+                tip_lat, tip_lon = c_lat + 0.5 * size * u_lat, c_lon + 0.5 * size * u_lon
+                b1_lat = tip_lat - size * u_lat + (size * 0.6) * p_lat
+                b1_lon = tip_lon - size * u_lon + (size * 0.6) * p_lon
+                b2_lat = tip_lat - size * u_lat - (size * 0.6) * p_lat
+                b2_lon = tip_lon - size * u_lon - (size * 0.6) * p_lon
+                fig.add_trace(go.Scattermapbox(lat=[b1_lat, tip_lat, b2_lat, b1_lat], lon=[b1_lon, tip_lon, b2_lon, b1_lon], mode='lines', fill="toself", fillcolor=color, line=dict(width=1, color=color), hoverinfo='skip', showlegend=False))
+                break
+            acc += length
 
 # --- Persistent Results Logic ---
 RESULTS_FILE = os.path.join(os.path.dirname(__file__), "data", "precalculated_results.pkl")
@@ -306,6 +320,8 @@ with tab_map:
         # Green (spare capacity) → orange (moderate) → red (constrained)
         color        = '#ef4444' if util > 0.9 else ('#f97316' if util > 0.7 else '#22c55e')
         casing_color = '#7f1d1d' if util > 0.9 else ('#7c2d12' if util > 0.7 else '#14532d')
+        # Lighter tint of the utilisation colour so arrows contrast against the pipe fill
+        arrow_color  = '#fca5a5' if util > 0.9 else ('#fdba74' if util > 0.7 else '#86efac')
         flow_w = max(3, min(9, 2 + np.log1p(row['Value']) * 1.5))
         hover = f"<b>{arc}</b><br>Flow: {row['Value']:.1f} PJ<br>Utilisation: {util:.1%}<br>Capacity: {cap:.0f} PJ/yr"
 
@@ -317,7 +333,7 @@ with tab_map:
         fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode='lines',
                                        line=dict(width=flow_w, color=color),
                                        opacity=0.9, text=hover, hoverinfo='text', showlegend=False))
-        add_arrowhead(fig, path[-2][0], path[-2][1], path[-1][0], path[-1][1], '#90EE90', flow_w)
+        add_flow_arrows(fig, path, arrow_color, flow_w)
     
     # Nodes
     node_types, storage_info = static_data['nodes'].set_index('Name')['Type'].to_dict(), static_data['nodes'].set_index('Name')['StorageCapacity'].to_dict()
